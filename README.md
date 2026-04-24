@@ -4,7 +4,7 @@
 
 ## Česky
 
-**Clip** je macOS nástroj, který zachytí označený text nebo obsah schránky, pošle ho do AI a výsledek zkopíruje zpět do schránky.
+**Clip** je macOS nástroj, který ti klávesovou zkratkou vyvolá okno, kde si vybereš jak chceš AI použít — odpověď na e-mail, shrnutí stránky, analýza rizik, překlad nebo cokoliv vlastního. Označený text nebo obsah schránky se pošle do AI a výsledek se zkopíruje zpět do schránky.
 
 ![Clip screenshot](screen.png)
 
@@ -55,7 +55,7 @@ Soubor `config.yaml` obsahuje providery, hotkey a operace.
 
 ## English
 
-**Clip** is a macOS tool that captures selected text or clipboard content, sends it to an AI model, and copies the result back to the clipboard.
+**Clip** is a macOS tool that brings up a popup with a keyboard shortcut, letting you choose how to use AI — reply to an email, summarize a page, assess risks, translate, or anything custom. Selected text or clipboard content is sent to the AI and the result is copied back to your clipboard.
 
 ![Clip screenshot](screen.png)
 
