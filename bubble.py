@@ -1,5 +1,7 @@
 import subprocess
+import tempfile
 import threading
+import os
 
 
 def _reading_timeout(text: str) -> int:
@@ -9,9 +11,25 @@ def _reading_timeout(text: str) -> int:
 
 def show_bubble(root, text: str):
     timeout = _reading_timeout(text)
-    safe = text.replace('"', '\\"').replace("'", "\\'")
-    script = f'display dialog "{safe}" buttons {{"OK"}} default button 1 giving up after {timeout} with title "Clip"'
-    threading.Thread(
-        target=lambda: subprocess.run(["osascript", "-e", script], capture_output=True),
-        daemon=True,
-    ).start()
+
+    def run():
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
+            f.write(text)
+            tmp = f.name
+
+        script = f'''
+set f to open for access POSIX file "{tmp}"
+set t to read f as «class utf8»
+close access f
+do shell script "rm " & quoted form of "{tmp}"
+display dialog t buttons {{"OK"}} default button 1 giving up after {timeout} with title "Clip"
+'''
+        r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f"[clip] bubble chyba: {r.stderr.strip()}")
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+
+    threading.Thread(target=run, daemon=True).start()
