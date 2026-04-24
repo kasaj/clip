@@ -50,9 +50,9 @@ operations:
       Na začátek přidej položku Shrnutí s krátkým popisem o čem obsah je.'
   web:
     label: WEB
-    prompt: Pokud ve vlozenem textu zaznamenas url adresu, pokus se pristoupit na
-      stranku a udelat jeji shrnuti v ceske podobe (kratce o cem stranka je, dulezite
-      informace, data, fakta). Pouze cisty text bez markdown formatovani, bez tucneho
-      pisma, bez hvezdicek, bez emoji. Pokud se ti nepodari pristoupit na stranku,
-      napis "URL pristup selhal". Pokud v textu zadna URL neni, napis "Zadna URL adresa
-      nenalezena".
+    prompt: Pokud ve vlozemem textu zaznamenas url adresu nebo domenove jmeno (i
+      bez http, napr. csfd.cz, www.csfd.cz), pokus se pristoupit na stranku a udelat
+      jeji shrnuti v ceske podobe (kratce o cem stranka je, dulezite informace, data,
+      fakta). Pouze cisty text bez markdown formatovani, bez tucneho pisma, bez hvezdicek,
+      bez emoji. Pokud se ti nepodari pristoupit na stranku, napis "URL pristup selhal".
+      Pokud v textu zadna URL ani domenove jmeno neni, napis "Zadna URL adresa nenalezena".
