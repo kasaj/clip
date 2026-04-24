@@ -78,6 +78,7 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
 
     provider_var = tk.StringVar(value=default_provider)
     speech_var = tk.BooleanVar(value=False)
+    clipboard_var = tk.BooleanVar(value=True)
 
     # ── Provider ──────────────────────────────────────────
     tk.Label(win, text="Provider:", bg="#1e1e2e", fg="#6c7086",
@@ -90,10 +91,16 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
                        activebackground="#1e1e2e", activeforeground="#cdd6f4",
                        font=("SF Pro Display", 11)).pack(side="left", padx=(0, 12))
 
-    tk.Checkbutton(win, text="🔊 Přečíst nahlas", variable=speech_var,
+    cf = tk.Frame(win, bg="#1e1e2e")
+    cf.pack(anchor="w", pady=(2, 8))
+    tk.Checkbutton(cf, text="🔊 Přečíst nahlas", variable=speech_var,
                    bg="#1e1e2e", fg="#cdd6f4", selectcolor="#313244",
                    activebackground="#1e1e2e", activeforeground="#cdd6f4",
-                   font=("SF Pro Display", 11), cursor="hand2").pack(anchor="w", pady=(2, 8))
+                   font=("SF Pro Display", 11), cursor="hand2").pack(side="left", padx=(0, 12))
+    tk.Checkbutton(cf, text="📋 Use clipboard", variable=clipboard_var,
+                   bg="#1e1e2e", fg="#cdd6f4", selectcolor="#313244",
+                   activebackground="#1e1e2e", activeforeground="#cdd6f4",
+                   font=("SF Pro Display", 11), cursor="hand2").pack(side="left")
 
     tk.Frame(win, bg="#313244", height=1).pack(fill="x", pady=(0, 10))
 
@@ -107,7 +114,7 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
 
     def pick(key, prompt):
         win.destroy()
-        on_select(key, prompt, provider_var.get(), speech_var.get())
+        on_select(key, prompt, provider_var.get(), speech_var.get(), clipboard_var.get())
 
     def delete_op(key, row_frame):
         if len(operations) <= 1:
@@ -148,7 +155,7 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
             prompt = _ask("Vlastní prompt:")
             if prompt:
                 win.destroy()
-                on_select("custom", prompt, provider_var.get(), speech_var.get())
+                on_select("custom", prompt, provider_var.get(), speech_var.get(), clipboard_var.get())
         threading.Thread(target=run, daemon=True).start()
 
     # ── Bottom bar ────────────────────────────────────────

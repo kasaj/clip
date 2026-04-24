@@ -145,12 +145,14 @@ def main():
             if image_b64:
                 print("[hotkey] clipboard obsahuje obrázek – posílám do vision API")
 
-            def on_select(op_key, prompt, provider_key, speech):
-                print(f"[popup] operace={op_key} provider={provider_key} speech={speech}")
+            def on_select(op_key, prompt, provider_key, speech, use_clipboard=True):
+                print(f"[popup] operace={op_key} provider={provider_key} speech={speech} clipboard={use_clipboard}")
                 provider_cfg = providers[provider_key]
+                ctx_text = text if use_clipboard else ""
+                ctx_image = image_b64 if use_clipboard else None
                 threading.Thread(
                     target=process_gpt,
-                    args=(provider_cfg, provider_key, op_key, prompt, text, source, speech, image_b64),
+                    args=(provider_cfg, provider_key, op_key, prompt, ctx_text, source, speech, ctx_image),
                     daemon=True,
                 ).start()
 
