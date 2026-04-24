@@ -22,7 +22,7 @@ set f to open for access POSIX file "{tmp}"
 set t to read f as «class utf8»
 close access f
 do shell script "rm " & quoted form of "{tmp}"
-display dialog t buttons {{"OK"}} default button 1 giving up after {timeout} with title "Clip"
+display dialog t buttons {{"OK"}} default button 1 with title "Clip"
 '''
         r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
         if r.returncode != 0:
