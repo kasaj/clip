@@ -96,11 +96,13 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
                    font=("SF Pro Display", 11), cursor="hand2").pack(anchor="w", pady=(2, 8))
 
     tk.Frame(win, bg="#313244", height=1).pack(fill="x", pady=(0, 10))
-    tk.Label(win, text="Agents", fg="gray", font=("SF Pro Display", 11)).pack(pady=(0, 8))
 
     # ── Operations ────────────────────────────────────────
-    ops_frame = tk.Frame(win, bg="#1e1e2e")
-    ops_frame.pack(fill="x")
+    agents_lf = tk.LabelFrame(win, text="Agents", fg="gray",
+                               bg="#1e1e2e", font=("SF Pro Display", 11),
+                               bd=1, relief="groove", padx=6, pady=6)
+    agents_lf.pack(fill="x", pady=(0, 8))
+    ops_frame = agents_lf
 
     def pick(key, prompt):
         win.destroy()
