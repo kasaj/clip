@@ -4,7 +4,7 @@
 
 ## Česky
 
-**Clip** je macOS nástroj, který ti klávesovou zkratkou vyvolá okno, kde si vybereš jak chceš AI použít — odpověď na e-mail, shrnutí stránky, analýza rizik, překlad nebo cokoliv vlastního. Označený text nebo obsah schránky se pošle do AI a výsledek se zkopíruje zpět do schránky.
+Clip je macOS nástroj pro rychlé zpracování textu pomocí AI — dvojitým stisknutím Ctrl vyvoláš okno, vybereš operaci (překlad, shrnutí, odpověď na e-mail, analýza...) a výsledek se okamžitě zkopíruje zpět do schránky. Pracuje s označeným textem nebo obsahem schránky a libovolné vlastní instrukce lze uložit jako agenty.
 
 ![Clip screenshot](screen.png)
 
@@ -60,7 +60,7 @@ Soubor `config.yaml` obsahuje providery, hotkey a operace.
 
 ## English
 
-**Clip** is a macOS tool that brings up a popup with a keyboard shortcut, letting you choose how to use AI — reply to an email, summarize a page, assess risks, translate, or anything custom. Selected text or clipboard content is sent to the AI and the result is copied back to your clipboard.
+Clip is a macOS tool for fast AI-powered text processing — double-tap Ctrl to bring up a popup, choose an operation (translate, summarize, reply to an email, analyze...) and the result is instantly copied back to your clipboard. Works with selected text or clipboard content, and any custom instruction can be saved as an agent.
 
 ![Clip screenshot](screen.png)
 
