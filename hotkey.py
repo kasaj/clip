@@ -5,8 +5,6 @@ import base64
 from typing import Optional, Tuple
 from pynput import keyboard
 from pynput.keyboard import Key, Controller
-from AppKit import NSEvent, NSLeftMouseDownMask
-
 from AppKit import (NSPasteboard, NSPasteboardTypePNG, NSPasteboardTypeTIFF,
                     NSBitmapImageRep, NSPNGFileType)
 
@@ -126,36 +124,8 @@ def start_listener(hotkey_cfg: dict, callback):
             else:
                 held.discard(key)
 
-    shift_held = [False]
-    _shift_keys = {Key.shift, Key.shift_l, Key.shift_r}
-
-    orig_on_press = on_press
-    orig_on_release = on_release
-
-    def combined_on_press(key):
-        if key in _shift_keys:
-            shift_held[0] = True
-        orig_on_press(key)
-
-    def combined_on_release(key):
-        if key in _shift_keys:
-            shift_held[0] = False
-        orig_on_release(key)
-
     def run():
-        with keyboard.Listener(on_press=combined_on_press, on_release=combined_on_release):
+        with keyboard.Listener(on_press=on_press, on_release=on_release):
             threading.Event().wait()
 
     threading.Thread(target=run, daemon=True).start()
-
-    def _run_mouse():
-        def handler(event):
-            if shift_held[0]:
-                callback()
-        NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
-            NSLeftMouseDownMask, handler
-        )
-        import AppKit
-        AppKit.NSRunLoop.currentRunLoop().run()
-
-    threading.Thread(target=_run_mouse, daemon=True).start()

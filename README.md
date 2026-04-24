@@ -7,7 +7,6 @@ Clip je macOS nástroj, který zachytí označený text nebo obsah schránky, po
 ## Funkce
 
 - **Dvojité stisknutí Ctrl** spustí popup s výběrem operace
-- **Shift + klik** myší spustí popup okamžitě
 - Operace: překlad/oprava do **CZ / EN**, stručná odpověď **ASK**, extrakce klíčových informací **KEY**, shrnutí webové stránky **WEB**
 - **Vlastní prompt** — napíšeš co chceš
 - Podpora pro **obrázky** ze schránky (vision API)
@@ -60,7 +59,7 @@ python3 main.py
 ## Použití
 
 1. Označ text v libovolné aplikaci (nebo zkopíruj obrázek do schránky)
-2. Dvakrát stiskni **Ctrl** (nebo **Shift + klik**)
+2. Dvakrát stiskni **Ctrl**
 3. V okně vyber providera, operaci nebo napiš vlastní prompt
 4. Výsledek se zkopíruje do schránky a zobrazí v dialogu
 
@@ -75,7 +74,6 @@ Clip is a macOS tool that captures selected text or clipboard content, sends it 
 ## Features
 
 - **Double-tap Ctrl** triggers the popup
-- **Shift + click** triggers the popup instantly
 - Operations: translate/correct to **CZ / EN**, short answer **ASK**, key info extraction **KEY**, web page summary **WEB**
 - **Custom prompt** — type anything
 - **Image** clipboard support (vision API)
@@ -128,6 +126,6 @@ python3 main.py
 ## Usage
 
 1. Select text in any app (or copy an image to clipboard)
-2. Double-tap **Ctrl** (or **Shift + click**)
+2. Double-tap **Ctrl**
 3. Choose a provider and operation, or type a custom prompt
 4. The result is copied to clipboard and shown in a dialog
