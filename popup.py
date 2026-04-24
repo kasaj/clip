@@ -154,8 +154,10 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
         def run():
             prompt = _ask("Vlastní prompt:")
             if prompt:
-                win.destroy()
-                on_select("custom", prompt, provider_var.get(), speech_var.get(), clipboard_var.get())
+                prov = provider_var.get()
+                sp = speech_var.get()
+                use_cb = clipboard_var.get()
+                root.after(0, lambda: (win.destroy(), on_select("custom", prompt, prov, sp, use_cb)))
         threading.Thread(target=run, daemon=True).start()
 
     # ── Bottom bar ────────────────────────────────────────
