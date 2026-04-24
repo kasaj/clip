@@ -132,6 +132,14 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
     ICON_BTN = dict(bg="#2d2d42", fg="gray", relief="flat",
                     font=("SF Pro Display", 12), pady=6, cursor="hand2", padx=6)
 
+    def _pick_with_comment(key, base_prompt):
+        import threading
+        def run():
+            comment = _ask(f"Přidat komentář k {operations[key]['label']}:", "")
+            combined = base_prompt + ("\n\nDodatečný kontext od uživatele: " + comment if comment else "")
+            root.after(0, lambda: (win.destroy(), on_select(key, combined, provider_var.get(), speech_var.get(), clipboard_var.get())))
+        threading.Thread(target=run, daemon=True).start()
+
     def _build_op_row(key, op):
         row = tk.Frame(ops_frame, bg="#2d2d42")
         row.pack(fill="x", pady=2)
@@ -141,6 +149,9 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
         tk.Button(row, text=op["label"],
                   command=lambda k=key, p=op["prompt"]: pick(k, p),
                   padx=12, **BTN).pack(side="left", fill="x", expand=True)
+        tk.Button(row, text="+",
+                  command=lambda k=key, p=op["prompt"]: _pick_with_comment(k, p),
+                  **ICON_BTN).pack(side="left", padx=(2, 0))
         tk.Button(row, text="✎",
                   command=lambda k=key: _show_agent_dialog(root, operations, rebuild_ops, k),
                   **ICON_BTN).pack(side="left", padx=(2, 0))
