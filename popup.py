@@ -96,11 +96,7 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
                    font=("SF Pro Display", 11), cursor="hand2").pack(anchor="w", pady=(2, 8))
 
     tk.Frame(win, bg="#313244", height=1).pack(fill="x", pady=(0, 10))
-    tk.Button(win, text="Agents", bg="#1e1e2e",
-              activebackground="#1e1e2e", relief="flat",
-              bd=0, highlightthickness=0,
-              font=("SF Pro Display", 11), state="disabled",
-              disabledforeground="#888888").pack(fill="x", pady=(0, 8))
+    tk.Label(win, text="Agents", fg="gray", font=("SF Pro Display", 11)).pack(pady=(0, 8))
 
     # ── Operations ────────────────────────────────────────
     ops_frame = tk.Frame(win, bg="#1e1e2e")
