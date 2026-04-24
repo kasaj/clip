@@ -11,7 +11,12 @@
 ### Funkce
 
 - Dvojité stisknutí **Ctrl** spustí popup s výběrem operace
-- Vestavěné operace: **CZ**, **EN**, **ASK**, **KEY**, **WEB**
+- Vestavěné operace:
+  - **CZ** — opraví gramatiku nebo přeloží text do češtiny, zachová styl a tón originálu
+  - **EN** — opraví gramatiku nebo přeloží text do angličtiny, zachová styl a tón originálu
+  - **ASK** — stručná faktická odpověď na dotaz nebo vysvětlení pojmu, bez zbytečného komentáře
+  - **KEY** — extrahuje klíčové informace z textu: fakta, čísla, data, závěry — každé na samostatném řádku
+  - **WEB** — detekuje URL v textu, stáhne stránku a vrátí její shrnutí v češtině
 - **Vlastní prompt** — tlačítko PROMPT pro libovolný dotaz
 - Podpora **obrázků** ze schránky (vision API)
 - Automatické stažení obsahu URL před odesláním
@@ -62,7 +67,12 @@ Soubor `config.yaml` obsahuje providery, hotkey a operace.
 ### Features
 
 - Double-tap **Ctrl** triggers the operation popup
-- Built-in operations: **CZ**, **EN**, **ASK**, **KEY**, **WEB**
+- Built-in operations:
+  - **CZ** — corrects grammar or translates text into Czech, preserving the original style and tone
+  - **EN** — corrects grammar or translates text into English, preserving the original style and tone
+  - **ASK** — short factual answer to a question or explanation of a term, no unnecessary commentary
+  - **KEY** — extracts key information from text: facts, numbers, dates, conclusions — one per line
+  - **WEB** — detects a URL in the text, fetches the page, and returns a summary in Czech
 - **Custom prompt** — PROMPT button for any query
 - **Image** clipboard support (vision API)
 - Automatic URL fetching before sending
