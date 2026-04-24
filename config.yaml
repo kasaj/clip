@@ -1,20 +1,20 @@
 providers:
-  chatgpt (azure):
+  Claude (Azure):
+    type: azure_anthropic
+    api_key: YOUR_AZURE_KEY
+    endpoint: https://YOUR_RESOURCE.services.ai.azure.com/anthropic
+    model: YOUR_DEPLOYMENT_NAME
+  Claude:
+    type: anthropic
+    api_key: YOUR_ANTHROPIC_API_KEY
+    model: claude-sonnet-4-6
+  ChatGPT (Azure):
     type: azure
     api_key: YOUR_AZURE_OPENAI_KEY
     endpoint: https://YOUR_RESOURCE.cognitiveservices.azure.com
     deployment: gpt-4o
     api_version: 2025-01-01-preview
-  claude:
-    type: anthropic
-    api_key: YOUR_ANTHROPIC_API_KEY
-    model: claude-sonnet-4-6
-  claude (azure):
-    type: azure_anthropic
-    api_key: YOUR_AZURE_KEY
-    endpoint: https://YOUR_RESOURCE.services.ai.azure.com/anthropic
-    model: YOUR_DEPLOYMENT_NAME
-default_provider: claude (azure)
+default_provider: Claude (Azure)
 hotkey:
   double_tap: ctrl
   interval: 0.4
