@@ -53,8 +53,11 @@ def ask(provider_cfg: dict, system_prompt: str, user_text: str,
             max_tokens=1024,
             system=system_prompt if not image_b64 else "",
             messages=[{"role": "user", "content": user_content}],
+            tools=[{"type": "web_search_20250305", "name": "web_search"}],
         )
-        return message.content[0].text.strip()
+        # Collect all text blocks (model may interleave tool use and text)
+        parts = [b.text for b in message.content if hasattr(b, "text")]
+        return "\n".join(parts).strip()
 
     elif kind == "anthropic":
         client = anthropic.Anthropic(api_key=provider_cfg["api_key"])
