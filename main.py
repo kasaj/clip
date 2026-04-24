@@ -32,7 +32,10 @@ def _strip_markdown(text: str) -> str:
 
 
 def load_config():
-    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+    base = os.path.dirname(__file__)
+    cfg_path = os.path.join(base, "myconfig.yaml")
+    if not os.path.exists(cfg_path):
+        cfg_path = os.path.join(base, "config.yaml")
     with open(cfg_path) as f:
         return yaml.safe_load(f)
 
