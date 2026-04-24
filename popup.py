@@ -98,9 +98,10 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
     tk.Frame(win, bg="#313244", height=1).pack(fill="x", pady=(0, 10))
 
     # ── Operations ────────────────────────────────────────
-    agents_lf = tk.LabelFrame(win, text="Agents", fg="gray",
-                               font=("SF Pro Display", 11),
-                               bd=2, relief="groove", padx=6, pady=6)
+    tk.Button(win, text="— Agents —", bg="#1e1e2e", disabledforeground="gray",
+              relief="flat", bd=0, highlightthickness=0,
+              font=("SF Pro Display", 10), state="disabled").pack(fill="x")
+    agents_lf = tk.Frame(win, bg="#2d2d42", padx=8, pady=8)
     agents_lf.pack(fill="x", pady=(0, 8))
     ops_frame = agents_lf
 
@@ -122,7 +123,7 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
             _build_op_row(key, op)
 
     def _build_op_row(key, op):
-        row = tk.Frame(ops_frame)
+        row = tk.Frame(ops_frame, bg="#2d2d42")
         row.pack(fill="x", pady=2)
         tk.Button(row, text=op["label"],
                   command=lambda k=key, p=op["prompt"]: pick(k, p),
