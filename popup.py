@@ -129,22 +129,21 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
         for key, op in operations.items():
             _build_op_row(key, op)
 
+    ICON_BTN = dict(bg="#2d2d42", fg="gray", relief="flat",
+                    font=("SF Pro Display", 12), pady=6, cursor="hand2", padx=6)
+
     def _build_op_row(key, op):
         row = tk.Frame(ops_frame, bg="#2d2d42")
         row.pack(fill="x", pady=2)
+        tk.Button(row, text="✕",
+                  command=lambda k=key, r=row: delete_op(k, r),
+                  **ICON_BTN).pack(side="left", padx=(0, 2))
         tk.Button(row, text=op["label"],
                   command=lambda k=key, p=op["prompt"]: pick(k, p),
                   padx=12, **BTN).pack(side="left", fill="x", expand=True)
-        tk.Button(row, text="✏️",
+        tk.Button(row, text="✎",
                   command=lambda k=key: _show_agent_dialog(root, operations, rebuild_ops, k),
-                  bg="#1e1e2e", fg="#cdd6f4", relief="flat",
-                  font=("SF Pro Display", 12), pady=6, cursor="hand2",
-                  padx=6).pack(side="left", padx=(4, 0))
-        tk.Button(row, text="🗑️",
-                  command=lambda k=key, r=row: delete_op(k, r),
-                  bg="#1e1e2e", fg="#f38ba8", relief="flat",
-                  font=("SF Pro Display", 12), pady=6, cursor="hand2",
-                  padx=6).pack(side="left", padx=(2, 0))
+                  **ICON_BTN).pack(side="left", padx=(2, 0))
 
     for key, op in operations.items():
         _build_op_row(key, op)
