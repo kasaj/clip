@@ -9,6 +9,7 @@ Hotkey → get selected text → choose provider + operation → AI → print re
 import queue
 import threading
 import os
+import re
 import tkinter as tk
 import subprocess
 import yaml
@@ -19,6 +20,15 @@ import gpt
 import fetch
 import popup
 import bubble
+
+
+def _strip_markdown(text: str) -> str:
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text, flags=re.DOTALL)
+    text = re.sub(r'__(.*?)__', r'\1', text, flags=re.DOTALL)
+    text = re.sub(r'\*(.*?)\*', r'\1', text, flags=re.DOTALL)
+    text = re.sub(r'_(.*?)_', r'\1', text, flags=re.DOTALL)
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    return text
 
 
 def load_config():
@@ -85,6 +95,7 @@ def process_gpt(provider_cfg, provider_key, op_key, prompt, text, source, speech
         result = f"Chyba: {e}"
         print(f"[gpt] chyba: {e}")
 
+    result = _strip_markdown(result)
     subprocess.run("pbcopy", input=result.encode("utf-8"), check=True)
     log_session(op_key, provider_key, source, text, result, image_b64)
     print(f"\n{'─'*60}\n{result}\n{'─'*60}\n")

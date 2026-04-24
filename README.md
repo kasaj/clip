@@ -1,81 +1,69 @@
-# Clip
-
-Clip je macOS nástroj, který zachytí označený text nebo obsah schránky, pošle ho do AI (Claude / ChatGPT) a výsledek zkopíruje zpět do schránky.
+[🇨🇿 Česky](#česky) | [🇬🇧 English](#english)
 
 ---
 
-## Funkce
+## Česky
 
-- **Dvojité stisknutí Ctrl** spustí popup s výběrem operace
-- Operace: překlad/oprava do **CZ / EN**, stručná odpověď **ASK**, extrakce klíčových informací **KEY**, shrnutí webové stránky **WEB**
-- **Vlastní prompt** — napíšeš co chceš
-- Podpora pro **obrázky** ze schránky (vision API)
+**Clip** je macOS nástroj, který zachytí označený text nebo obsah schránky, pošle ho do AI a výsledek zkopíruje zpět do schránky.
+
+![Clip screenshot](screen.png)
+
+### Funkce
+
+- Dvojité stisknutí **Ctrl** spustí popup s výběrem operace
+- Vestavěné operace: **CZ**, **EN**, **ASK**, **KEY**, **WEB**
+- **Vlastní prompt** — tlačítko PROMPT pro libovolný dotaz
+- Podpora **obrázků** ze schránky (vision API)
 - Automatické stažení obsahu URL před odesláním
 - Přečtení výsledku nahlas (hlas Zuzana)
 - Správa operací přímo v okně (přidat / upravit / smazat)
 - Logování každé session do složky `session/`
 - Podpora více AI providerů: Anthropic Claude, Azure OpenAI, Azure Claude
 
----
+### Instalace
 
-## Instalace
-
-### Požadavky
-
-- macOS
-- Python 3.9+
-- Povolení **Accessibility** v Nastavení systému → Soukromí a zabezpečení → Accessibility (pro zachytávání kláves)
-
-### Instalace závislostí
+**Požadavky:** macOS, Python 3.9+
 
 ```bash
 pip install -r requirements.txt
-```
-
-### Konfigurace
-
-```bash
-cp config.example.yaml config.yaml
-```
-
-Otevři `config.yaml` a vyplň své API klíče a endpointy.
-
-#### Typy providerů
-
-| type | Popis |
-|------|-------|
-| `anthropic` | Přímé API Anthropic |
-| `azure` | Azure OpenAI (GPT-4o apod.) |
-| `azure_anthropic` | Claude přes Azure AI Foundry |
-
-### Spuštění
-
-```bash
+cp config.yaml config.yaml.bak   # záloha
+# vyplň api_key a endpoint ve config.yaml
 python3 main.py
 ```
 
----
+Při prvním spuštění je nutné povolit **Accessibility** v  
+Nastavení systému → Soukromí a zabezpečení → Accessibility.
 
-## Použití
+### Konfigurace
 
-1. Označ text v libovolné aplikaci (nebo zkopíruj obrázek do schránky)
+Soubor `config.yaml` obsahuje providery, hotkey a operace.
+
+| Typ providera | Popis |
+|---|---|
+| `anthropic` | Přímé Anthropic API |
+| `azure` | Azure OpenAI (GPT-4o) |
+| `azure_anthropic` | Claude přes Azure AI Foundry |
+
+### Použití
+
+1. Označ text (nebo zkopíruj obrázek do schránky)
 2. Dvakrát stiskni **Ctrl**
-3. V okně vyber providera, operaci nebo napiš vlastní prompt
-4. Výsledek se zkopíruje do schránky a zobrazí v dialogu
+3. Vyber providera, operaci nebo napiš vlastní prompt
+4. Výsledek je v schránce a zobrazí se v dialogu
 
 ---
 
-# Clip (EN)
+## English
 
-Clip is a macOS tool that captures selected text or clipboard content, sends it to an AI model (Claude / ChatGPT), and copies the result back to the clipboard.
+**Clip** is a macOS tool that captures selected text or clipboard content, sends it to an AI model, and copies the result back to the clipboard.
 
----
+![Clip screenshot](screen.png)
 
-## Features
+### Features
 
-- **Double-tap Ctrl** triggers the popup
-- Operations: translate/correct to **CZ / EN**, short answer **ASK**, key info extraction **KEY**, web page summary **WEB**
-- **Custom prompt** — type anything
+- Double-tap **Ctrl** triggers the operation popup
+- Built-in operations: **CZ**, **EN**, **ASK**, **KEY**, **WEB**
+- **Custom prompt** — PROMPT button for any query
 - **Image** clipboard support (vision API)
 - Automatic URL fetching before sending
 - Text-to-speech readout (Zuzana voice)
@@ -83,49 +71,33 @@ Clip is a macOS tool that captures selected text or clipboard content, sends it 
 - Session logging to the `session/` folder
 - Multiple AI providers: Anthropic Claude, Azure OpenAI, Azure Claude
 
----
+### Installation
 
-## Installation
-
-### Requirements
-
-- macOS
-- Python 3.9+
-- **Accessibility** permission in System Settings → Privacy & Security → Accessibility
-
-### Install dependencies
+**Requirements:** macOS, Python 3.9+
 
 ```bash
 pip install -r requirements.txt
-```
-
-### Configuration
-
-```bash
-cp config.example.yaml config.yaml
-```
-
-Open `config.yaml` and fill in your API keys and endpoints.
-
-#### Provider types
-
-| type | Description |
-|------|-------------|
-| `anthropic` | Direct Anthropic API |
-| `azure` | Azure OpenAI (GPT-4o etc.) |
-| `azure_anthropic` | Claude via Azure AI Foundry |
-
-### Run
-
-```bash
+cp config.yaml config.yaml.bak   # backup
+# fill in api_key and endpoint in config.yaml
 python3 main.py
 ```
 
----
+On first run, grant **Accessibility** permission in  
+System Settings → Privacy & Security → Accessibility.
 
-## Usage
+### Configuration
+
+`config.yaml` contains providers, hotkey settings, and operations.
+
+| Provider type | Description |
+|---|---|
+| `anthropic` | Direct Anthropic API |
+| `azure` | Azure OpenAI (GPT-4o) |
+| `azure_anthropic` | Claude via Azure AI Foundry |
+
+### Usage
 
 1. Select text in any app (or copy an image to clipboard)
 2. Double-tap **Ctrl**
-3. Choose a provider and operation, or type a custom prompt
+3. Choose a provider, operation, or type a custom prompt
 4. The result is copied to clipboard and shown in a dialog
