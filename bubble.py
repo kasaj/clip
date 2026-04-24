@@ -9,9 +9,7 @@ def _reading_timeout(text: str) -> int:
     return max(5, min(30, round(words / 3)))
 
 
-def show_bubble(root, text: str):
-    timeout = _reading_timeout(text)
-
+def show_bubble(root, text: str, say_proc=None):
     def run():
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
             f.write(text)
@@ -25,6 +23,11 @@ do shell script "rm " & quoted form of "{tmp}"
 display dialog t buttons {{"OK"}} default button 1 with title "Clip"
 '''
         r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+        if say_proc is not None:
+            try:
+                say_proc.terminate()
+            except Exception:
+                pass
         if r.returncode != 0:
             print(f"[clip] bubble chyba: {r.stderr.strip()}")
             try:

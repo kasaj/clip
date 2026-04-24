@@ -110,10 +110,10 @@ def process_gpt(provider_cfg, provider_key, op_key, prompt, text, source, speech
     subprocess.run("pbcopy", input=result.encode("utf-8"), check=True)
     log_session(op_key, provider_key, source, text, result, image_b64)
     print(f"\n{'─'*60}\n{result}\n{'─'*60}\n")
-    _queue.put(("show_bubble", result))
-
+    say_proc = None
     if speech:
-        subprocess.run(["say", "-v", "Zuzana", result], check=False)
+        say_proc = subprocess.Popen(["say", "-v", "Zuzana", result])
+    _queue.put(("show_bubble", result, say_proc))
 
 
 def main():
@@ -170,7 +170,7 @@ def main():
             popup.show_popup(root, operations, providers, default_provider, on_select, on_cancel)
 
         elif msg[0] == "show_bubble":
-            bubble.show_bubble(root, msg[1])
+            bubble.show_bubble(root, msg[1], msg[2] if len(msg) > 2 else None)
 
         root.after(50, poll)
 
