@@ -2,7 +2,7 @@
 import warnings
 warnings.filterwarnings("ignore")
 """
-ClipGPT – macOS helper
+Clip – macOS helper
 Hotkey → get selected text → choose provider + operation → AI → print result
 """
 
@@ -52,7 +52,7 @@ def init_session():
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     SESSION_FILE = os.path.join(session_dir, f"{ts}.md")
     with open(SESSION_FILE, "w") as f:
-        f.write(f"# ClipGPT session – {ts}\n\n")
+        f.write(f"# Clip session – {ts}\n\n")
     print(f"[session] {SESSION_FILE}")
 
 
@@ -91,12 +91,20 @@ def process_gpt(provider_cfg, provider_key, op_key, prompt, text, source, speech
         except Exception as e:
             print(f"[fetch] chyba: {e}")
 
-    print(f"[gpt] volám {provider_cfg['type']} (image={'ano' if image_b64 else 'ne'})...")
+    # Když není žádný kontext, pošli prompt jako user message
+    if not text.strip() and not image_b64:
+        user_text = prompt
+        system = ""
+    else:
+        user_text = text
+        system = prompt
+
+    print(f"[clip] volám {provider_cfg['type']} (image={'ano' if image_b64 else 'ne'})...")
     try:
-        result = gpt.ask(provider_cfg, prompt, text, image_b64)
+        result = gpt.ask(provider_cfg, system, user_text, image_b64)
     except Exception as e:
         result = f"Chyba: {e}"
-        print(f"[gpt] chyba: {e}")
+        print(f"[clip] chyba: {e}")
 
     result = _strip_markdown(result)
     subprocess.run("pbcopy", input=result.encode("utf-8"), check=True)
@@ -124,7 +132,7 @@ def main():
         keys_str = f"double {hotkey_cfg['double_tap']}"
     else:
         keys_str = "+".join(hotkey_cfg.get("modifiers", [])) + " + [" + ", ".join(hotkey_cfg.get("keys", [])) + "]"
-    print(f"ClipGPT běží. Zkratka: {keys_str}  |  default provider: {default_provider}")
+    print(f"Clip běží. Zkratka: {keys_str}  |  default provider: {default_provider}")
     hotkey.start_listener(hotkey_cfg, on_hotkey)
 
     def poll():

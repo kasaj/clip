@@ -31,7 +31,7 @@ def _ask(prompt: str, default: str = "") -> str:
     """Native macOS text input dialog. Returns stripped value or '' on cancel."""
     safe_prompt = prompt.replace('"', '\\"')
     safe_default = default.replace('"', '\\"').replace("\n", "\\n")
-    script = f'text returned of (display dialog "{safe_prompt}" default answer "{safe_default}" with title "ClipGPT")'
+    script = f'text returned of (display dialog "{safe_prompt}" default answer "{safe_default}" with title "Clip")'
     r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
     return r.stdout.strip() if r.returncode == 0 else ""
 
