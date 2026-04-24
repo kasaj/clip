@@ -1,0 +1,54 @@
+providers:
+  chatgpt (azure):
+    type: azure
+    api_key: YOUR_AZURE_OPENAI_KEY
+    endpoint: https://YOUR_RESOURCE.cognitiveservices.azure.com
+    deployment: gpt-4o
+    api_version: 2025-01-01-preview
+  claude:
+    type: anthropic
+    api_key: YOUR_ANTHROPIC_API_KEY
+    model: claude-sonnet-4-6
+  claude (azure):
+    type: azure_anthropic
+    api_key: YOUR_AZURE_KEY
+    endpoint: https://YOUR_RESOURCE.services.ai.azure.com/anthropic
+    model: YOUR_DEPLOYMENT_NAME
+default_provider: claude (azure)
+hotkey:
+  double_tap: ctrl
+  interval: 0.4
+operations:
+  cz:
+    label: CZ
+    prompt: Oprav gramatiku nebo přelož text do češtiny. Zachovej původní význam,
+      styl a tón přesně – formální zůstane formální, neformální neformální, ironický
+      ironický. Pokud je text hovorový nebo obsahuje slang, zachovej ho v češtině.
+      Neupravuj strukturu vět více než je nutné. Vrať pouze výsledný text, žádný komentář
+      a formatování max odřádkování.
+  en:
+    label: EN
+    prompt: Correct grammar or translate the text into English. Preserve the original
+      meaning, style and tone exactly – formal stays formal, casual stays casual,
+      ironic stays ironic. If the text is colloquial or contains slang, preserve it
+      in English. Do not restructure sentences beyond what is necessary. Return only
+      the resulting text, no comments.
+  ask:
+    label: ASK
+    prompt: Odpovídej stručně, fakticky a neutrálně. Žádné názory, hodnocení ani emocionální
+      zabarvení. Žádné emoji. Neklaď žádné doplňující otázky. Nepřidávej závěrečné
+      nabídky ani výzvy k další konverzaci. Pokud existuje více pohledů, uveď je vyváženě.
+      Odpověz pouze na položený dotaz ve formě vysvětlení (klidně i definice slova)
+      - pokud si nejsi jistý napiš NULL.
+  key:
+    label: KEY
+    prompt: 'Extrahuj z textu klíčové informace: fakta, čísla, hodnoty, data, názvy,
+      závěry. Každá informace na samostatném řádku. Žádné formátování (bez odrážek,
+      tučného textu, markdown). Žádný komentář ani úvod. Zachovej původní čísla a
+      hodnoty přesně. Na začatek pridej polozku shrnuti: kde napis o cem obrazek krátce
+      je.'
+  web:
+    label: WEB
+    prompt: Pokud ve vlozenem textu zaznamenas url adresu, pokus se pristoupit na
+      stranku a udelat jeji shrnuti v ceske podobe (kratce o cem stranka je, dulezite informace,
+      data, fakta) - bez formatovani, pouze text. Pokud se ti nepodarí přistoupit na stránku, napiš "URL přístup selhal". Pokud v textu žádná URL není, napiš "Žádná URL adresa nenalezena".
