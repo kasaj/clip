@@ -83,31 +83,6 @@ def on_hotkey():
 
 
 def process_gpt(provider_cfg, provider_key, op_key, prompt, text, source, speech, image_b64):
-    # KEY na obrázku: extrahuj URL, pak automaticky zpracuj jako WEB
-    if op_key == "key" and image_b64:
-        url_prompt = "Z tohoto obrázku extrahuj URL adresu. Vrať pouze samotnou URL, nic jiného."
-        print("[gpt] KEY+image: extrahuji URL z obrázku...")
-        try:
-            extracted = gpt.ask(provider_cfg, url_prompt, "", image_b64).strip()
-        except Exception as e:
-            extracted = f"Chyba: {e}"
-        if fetch.is_url(extracted):
-            print(f"[gpt] nalezena URL: {extracted} → spouštím WEB")
-            image_b64 = None
-            text = extracted
-            op_key = "web"
-            prompt = "Stáhni stránku na zadané URL a udělej její shrnutí v češtině. Pouze čistý text bez markdown formátování, bez tučného písma, bez emoji."
-        else:
-            result = extracted
-            result = _strip_markdown(result)
-            subprocess.run("pbcopy", input=result.encode("utf-8"), check=True)
-            log_session(op_key, provider_key, source, text, result, image_b64)
-            print(f"\n{'─'*60}\n{result}\n{'─'*60}\n")
-            _queue.put(("show_bubble", result))
-            if speech:
-                subprocess.run(["say", "-v", "Zuzana", result], check=False)
-            return
-
     if not image_b64 and fetch.is_url(text):
         print(f"[fetch] stahuji {text.strip()[:60]}...")
         try:

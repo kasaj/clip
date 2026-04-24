@@ -43,11 +43,11 @@ operations:
       textu – pokud si nejsi jistý napiš NULL.
   key:
     label: KEY
-    prompt: 'Extrahuj z textu klíčové informace: fakta, čísla, hodnoty, data, názvy,
-      závěry. Každá informace na samostatném řádku. Žádný markdown, žádné odrážky,
-      žádné tučné písmo, žádné hvězdičky, žádný komentář ani úvod. Pouze čistý prostý
-      text. Zachovej původní čísla a hodnoty přesně. Na začátek přidej položku Shrnutí
-      s krátkým popisem o čem text je.'
+    prompt: 'Extrahuj z textu nebo obrázku klíčové informace: fakta, čísla, hodnoty,
+      data, názvy, URL adresy, závěry. Každá informace na samostatném řádku. Žádný
+      markdown, žádné odrážky, žádné tučné písmo, žádné hvězdičky, žádný komentář
+      ani úvod. Pouze čistý prostý text. Zachovej původní čísla a hodnoty přesně.
+      Na začátek přidej položku Shrnutí s krátkým popisem o čem obsah je.'
   web:
     label: WEB
     prompt: Pokud ve vlozenem textu zaznamenas url adresu, pokus se pristoupit na
