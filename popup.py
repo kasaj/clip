@@ -93,11 +93,11 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
 
     cf = tk.Frame(win, bg="#1e1e2e")
     cf.pack(anchor="w", pady=(2, 8))
-    tk.Checkbutton(cf, text="♪ Přečíst nahlas", variable=speech_var,
+    tk.Checkbutton(cf, text="Speech", variable=speech_var,
                    bg="#1e1e2e", fg="gray", selectcolor="#313244",
                    activebackground="#1e1e2e", activeforeground="gray",
                    font=("SF Pro Display", 11), cursor="hand2").pack(side="left", padx=(0, 12))
-    tk.Checkbutton(cf, text="≡ Use clipboard", variable=clipboard_var,
+    tk.Checkbutton(cf, text="Clipboard", variable=clipboard_var,
                    bg="#1e1e2e", fg="gray", selectcolor="#313244",
                    activebackground="#1e1e2e", activeforeground="gray",
                    font=("SF Pro Display", 11), cursor="hand2").pack(side="left")
