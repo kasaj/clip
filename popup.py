@@ -96,7 +96,7 @@ def show_popup(root, operations: dict, providers: dict, default_provider: str, o
                    font=("SF Pro Display", 11), cursor="hand2").pack(anchor="w", pady=(2, 8))
 
     tk.Frame(win, bg="#313244", height=1).pack(fill="x", pady=(0, 10))
-    tk.Label(win, text="Co udělat s textem?", bg="#1e1e2e", fg="#cdd6f4",
+    tk.Label(win, text="Agents", bg="#1e1e2e", fg="#cdd6f4",
              font=("SF Pro Display", 13, "bold")).pack(anchor="w", pady=(0, 8))
 
     # ── Operations ────────────────────────────────────────
