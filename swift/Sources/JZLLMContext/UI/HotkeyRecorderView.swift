@@ -3,7 +3,7 @@ import Carbon
 import SwiftUI
 
 extension Notification.Name {
-    static let hotkeyDidChange = Notification.Name("JZLLMContextHotkeyDidChange")
+    static let hotkeyDidChange = Notification.Name("ClipHotkeyDidChange")
 }
 
 // MARK: - Helpers

@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 enum KeychainStore {
-    private static let service = "com.jz.JZLLMContext"
+    private static let service = "com.jz.Clip"
 
     static func keychainRef(for provider: ProviderType) -> String {
         "jzllmcontext.\(provider.rawValue).apikey"

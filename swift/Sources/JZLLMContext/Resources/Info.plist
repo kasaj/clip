@@ -7,7 +7,7 @@
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundleDisplayName</key>
-	<string>JZLLMContext</string>
+	<string>Clip</string>
 	<key>CFBundleVersion</key>
 	<string>22</string>
 	<key>CFBundleShortVersionString</key>
@@ -25,8 +25,8 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>NSAccessibilityUsageDescription</key>
-	<string>JZLLMContext potřebuje přístup k accessibility API pro čtení vybraného textu.</string>
+	<string>Clip potřebuje přístup k accessibility API pro čtení vybraného textu.</string>
 	<key>NSScreenCaptureDescription</key>
-	<string>JZLLMContext potřebuje přístup k záznamu obrazovky pro OCR snímků.</string>
+	<string>Clip potřebuje přístup k záznamu obrazovky pro OCR snímků.</string>
 </dict>
 </plist>

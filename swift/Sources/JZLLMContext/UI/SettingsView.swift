@@ -113,7 +113,7 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("Vše se ukládá lokálně do ~/Library/Application Support/JZLLMContext/. Nastav složku na iDrive / OneDrive, aby se konfigurace synchronizovala mezi zařízeními.")
+                    Text("Vše se ukládá lokálně do ~/Library/Application Support/Clip/. Nastav složku na iDrive / OneDrive, aby se konfigurace synchronizovala mezi zařízeními.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -85,7 +85,7 @@ struct OverlayView: View {
 
     private var headerBar: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("JZLLMContext")
+            Text("Clip")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")

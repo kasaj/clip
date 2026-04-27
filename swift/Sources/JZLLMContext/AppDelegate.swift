@@ -35,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 icon.isTemplate = true
                 button.image = icon
             } else {
-                button.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "JZLLMContext")
+                button.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Clip")
             }
             button.target = self
             button.action = #selector(statusBarButtonClicked(_:))
@@ -51,7 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(headerItem)
         menu.addItem(.separator())
 
-        let aboutItem = NSMenuItem(title: "O aplikaci JZLLMContext", action: #selector(openAbout), keyEquivalent: "")
+        let aboutItem = NSMenuItem(title: "O aplikaci Clip", action: #selector(openAbout), keyEquivalent: "")
         aboutItem.target = self
         menu.addItem(aboutItem)
 
@@ -60,7 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(settingsItem)
         menu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "Ukončit JZLLMContext", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Ukončit Clip", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quitItem)
         statusMenu = menu
     }
@@ -104,7 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "JZLLMContext"
+            window.title = "Clip"
             window.isRestorable = false
             window.contentView = NSHostingView(rootView: SettingsView())
             window.center()
@@ -138,7 +138,7 @@ private struct MenuHeaderView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 7))
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("JZLLMContext").font(.headline)
+                Text("Clip").font(.headline)
                 Text(hotkeyState.displayString).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()

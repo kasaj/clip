@@ -15,7 +15,7 @@ struct AboutView: View {
             }
 
             VStack(spacing: 4) {
-                Text("JZLLMContext")
+                Text("Clip")
                     .font(.title2.bold())
                 Text("Verze \(version)")
                     .font(.subheadline)
