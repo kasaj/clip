@@ -74,6 +74,10 @@ struct AppConfig: Codable {
     var historyLimit: Int = 5
     var modelPresets: [String: [ModelPreset]] = [:]
 
+    /// When true, every completed operation is written as a JSON file to the
+    /// session/ subfolder (inside configFolderPath, or App Support/Clip/session/).
+    var recordSessions: Bool = false
+
     static let defaultAzureAPIVersion = "2024-10-21"
 
     // MARK: Provider overlay helpers
@@ -113,7 +117,8 @@ struct AppConfig: Codable {
          azureEndpoint2: String? = nil, azureDeploymentName2: String? = nil, azureAPIVersion2: String? = nil,
          customOpenAIBaseURL: String? = nil,
          autoCopyAndClose: Bool = false, historyLimit: Int = 5,
-         modelPresets: [String: [ModelPreset]] = [:]) {
+         modelPresets: [String: [ModelPreset]] = [:],
+         recordSessions: Bool = false) {
         self.schemaVersion           = schemaVersion
         self.hotkeyKeyCode           = hotkeyKeyCode
         self.hotkeyModifiers         = hotkeyModifiers
@@ -131,6 +136,7 @@ struct AppConfig: Codable {
         self.autoCopyAndClose        = autoCopyAndClose
         self.historyLimit            = historyLimit
         self.modelPresets            = modelPresets
+        self.recordSessions          = recordSessions
     }
 
     init(from decoder: Decoder) throws {
@@ -152,6 +158,7 @@ struct AppConfig: Codable {
         autoCopyAndClose = try c.decodeIfPresent(Bool.self,                    forKey: .autoCopyAndClose) ?? false
         historyLimit     = try c.decodeIfPresent(Int.self,                     forKey: .historyLimit) ?? 5
         modelPresets     = try c.decodeIfPresent([String: [ModelPreset]].self, forKey: .modelPresets) ?? [:]
+        recordSessions   = try c.decodeIfPresent(Bool.self,                    forKey: .recordSessions) ?? false
     }
 
     // MARK: Default config

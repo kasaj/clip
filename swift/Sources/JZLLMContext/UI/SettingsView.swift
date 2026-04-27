@@ -69,6 +69,22 @@ struct SettingsView: View {
                         ConfigStore.shared.update { $0.historyLimit = val }
                         HistoryStore.shared.trim(to: val)
                     }
+                Toggle("Zaznamenávat operace (session log)", isOn: $config.recordSessions)
+                    .onChange(of: config.recordSessions) { _, val in
+                        ConfigStore.shared.update { $0.recordSessions = val }
+                    }
+                if config.recordSessions {
+                    let sessionPath: String = {
+                        if let p = config.configFolderPath, !p.isEmpty {
+                            return p + "/session/"
+                        }
+                        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+                        return appSupport.appendingPathComponent("Clip/session").path + "/"
+                    }()
+                    Text("Každá dokončená operace se uloží jako JSON soubor do: \(sessionPath)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section("Globální zkratka") {

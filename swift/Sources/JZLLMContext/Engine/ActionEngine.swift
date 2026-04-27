@@ -17,11 +17,23 @@ final class ActionEngine: ObservableObject {
 
         currentTask = Task {
             defer { isLoading = false }
+            let started = Date()
             do {
                 let provider = try ProviderFactory.make(for: action)
                 for try await chunk in provider.stream(systemPrompt: action.systemPrompt, userContent: input) {
                     result += chunk
                 }
+                // Record session after successful completion
+                let duration = Date().timeIntervalSince(started)
+                let captured = result
+                SessionStore.shared.save(
+                    agent:    action.name,
+                    provider: action.provider.rawValue,
+                    model:    action.model,
+                    input:    input,
+                    output:   captured,
+                    duration: duration
+                )
             } catch is CancellationError {
                 return
             } catch let urlError as URLError where urlError.code == .cancelled {
