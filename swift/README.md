@@ -86,6 +86,19 @@ Export / import agentů: tlačítka dole v záložce Akce. Formát je `agents.js
 
 ---
 
+## Nové funkce v 0.24
+
+### Maskování obsahu schránky
+Obsah schránky se ve výchozím stavu zobrazuje maskovaný (první 3 znaky + tečky) kvůli ochraně soukromí. Kliknutím na ikonu **👁** se celý text odhalí.
+
+### Session jako doplňkový kontext
+Vedle pole *Doplňkový kontext* je ikona **zásobníku (↓)**. Kliknutím se otevře seznam posledních zaznamenaných operací (session log). Vyber libovolnou — její výstup se vloží jako doplňkový kontext pro aktuální dotaz.
+
+### Automatické načítání URL
+Pokud clipboard obsahuje pouze URL adresu, aplikace ji automaticky **stáhne a extrahuje text stránky** ještě před odesláním do modelu. Chování identické s Python variantou (`fetch.py`). Stav je viditelný: "Načítám stránku…" + progress indikátor. Při selhání stahování model dostane informaci o chybě.
+
+---
+
 ## Session log (zaznamenávání operací)
 
 **Nastavení → Obecné → Zaznamenávat operace (session log)**
@@ -194,9 +207,10 @@ Sources/JZLLMContext/
 │   ├── HotkeyRecorderView.swift
 │   └── OverlayWindowController.swift
 ├── Context/
-│   └── ContextResolver.swift  # čte clipboard (text / OCR z obrázku)
+│   ├── ContextResolver.swift  # čte clipboard (text / OCR z obrázku)
+│   └── WebFetcher.swift       # detekce URL, stahování a extrakce textu stránky
 └── Engine/
-    └── ActionEngine.swift     # řídí streaming, stav odpovědi a session log
+    └── ActionEngine.swift     # URL pre-fetch, streaming, stav odpovědi, session log
 ```
 
 **Tok dat:**
@@ -225,6 +239,7 @@ Python varianta používá double-tap Ctrl — tyto dvě zkratky se navzájem ne
 
 | Verze | Co přibylo |
 |---|---|
+| 0.24 | Maskování obsahu schránky (oko), výběr session jako doplňkového kontextu, načítání URL před odesláním do modelu |
 | 0.23 | Session log — volitelné zaznamenávání operací do JSON souborů |
 | 0.22 | Claude via Azure AI Foundry, Složka konfigurace, přejmenování na Clip |
 | 0.21 | Podpora modelů, import/export agentů, Login Item |

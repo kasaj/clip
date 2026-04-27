@@ -1,5 +1,15 @@
 import Foundation
 
+// MARK: - SessionListItem
+
+/// A decoded session entry together with its source filename — used in the
+/// session-picker UI inside OverlayView.
+struct SessionListItem: Identifiable {
+    let id: URL            // file URL used as stable identity
+    let filename: String
+    let entry: SessionEntry
+}
+
 // MARK: - SessionEntry
 
 /// One recorded operation: agent, input, output, timing.
@@ -57,6 +67,33 @@ final class SessionStore: @unchecked Sendable {
         } catch {
             // Non-fatal — session recording is best-effort
         }
+    }
+
+    // MARK: - Read API
+
+    /// Returns up to `limit` most-recent session entries from the session folder.
+    /// Always reads fresh from disk (no caching) so the picker reflects the latest state.
+    func recentSessions(limit: Int = 15) -> [SessionListItem] {
+        let dir = sessionDirectory()
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: [.contentModificationDateKey],
+            options: .skipsHiddenFiles
+        ) else { return [] }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let items: [SessionListItem] = files
+            .filter { $0.pathExtension == "json" }
+            .compactMap { url in
+                guard let data = try? Data(contentsOf: url),
+                      let entry = try? decoder.decode(SessionEntry.self, from: data)
+                else { return nil }
+                return SessionListItem(id: url, filename: url.lastPathComponent, entry: entry)
+            }
+            .sorted { $0.entry.timestamp > $1.entry.timestamp }
+
+        return Array(items.prefix(limit))
     }
 
     // MARK: - Helpers

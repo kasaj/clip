@@ -11,6 +11,7 @@
 		0C6B418CF3F45A62A78C1956 /* AnthropicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EEB15BFF1A234C902698B41 /* AnthropicProvider.swift */; };
 		AA11223344556677889900AA /* AzureAnthropicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677889900BB /* AzureAnthropicProvider.swift */; };
 		CC11223344556677889900CC /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD11223344556677889900DD /* SessionStore.swift */; };
+		EE11223344556677889900EE /* WebFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF11223344556677889900FF /* WebFetcher.swift */; };
 		107E3F54587858A4B2D73F27 /* OpenAIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E16BF47BB95B6257237524 /* OpenAIProvider.swift */; };
 		1548F1816AF1565C5FFBB2FD /* ProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 442548DEA3D00387E384367A /* ProviderFactory.swift */; };
 		1C2B45E4AA8EE0C9E320128D /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 299358F7A9CBA63430E341F7 /* HotkeyRecorderView.swift */; };
@@ -52,6 +53,7 @@
 		BB11223344556677889900BB /* AzureAnthropicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AzureAnthropicProvider.swift; sourceTree = "<group>"; };
 		CC7788BE265D802DAD645314 /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
 		CF007160F929203C6C07C38F /* ContextResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextResolver.swift; sourceTree = "<group>"; };
+		FF11223344556677889900FF /* WebFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebFetcher.swift; sourceTree = "<group>"; };
 		D0273500A6EB60B489DBD14E /* JZLLMContext.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = JZLLMContext.entitlements; sourceTree = "<group>"; };
 		D32A6BBDA7F534A25CF8D89A /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		DD11223344556677889900DD /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
@@ -72,6 +74,7 @@
 			isa = PBXGroup;
 			children = (
 				CF007160F929203C6C07C38F /* ContextResolver.swift */,
+				FF11223344556677889900FF /* WebFetcher.swift */,
 			);
 			path = Context;
 			sourceTree = "<group>";
@@ -242,6 +245,7 @@
 				9663B7E3F4E9E183B640A3A1 /* AppDelegate.swift in Sources */,
 				A751941FC618FDA4FA662166 /* ConfigStore.swift in Sources */,
 				0C3A306A2EAF3CCD2796ACC4 /* ContextResolver.swift in Sources */,
+				EE11223344556677889900EE /* WebFetcher.swift in Sources */,
 				29688E8CAB94FFBD58DD2D42 /* HistoryStore.swift in Sources */,
 				7C7F7BE7E9C1F5004DA1382B /* HotkeyManager.swift in Sources */,
 				1C2B45E4AA8EE0C9E320128D /* HotkeyRecorderView.swift in Sources */,

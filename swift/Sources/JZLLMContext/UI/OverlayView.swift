@@ -18,11 +18,17 @@ struct OverlayView: View {
     @State private var shownHistoryResult: String?
     @FocusState private var userContextFocused: Bool
 
+    // ── Feature 1: clipboard masking ──────────────────────────────────────
+    @State private var showFullContext = false
+
+    // ── Feature 2: session picker ─────────────────────────────────────────
+    @State private var showSessionPicker = false
+    @State private var recentSessions: [SessionListItem] = []
+
     private var actions: [Action] { ConfigStore.shared.actions.filter(\.enabled) }
     private var displayedResult: String? {
         shownHistoryResult ?? (engine.result.isEmpty ? nil : engine.result)
     }
-
 
     private var isMissingKeyError: Bool {
         guard let err = engine.lastError as? LLMError,
@@ -61,17 +67,15 @@ struct OverlayView: View {
         .onChange(of: state.refreshID) { resolveContext() }
         .onChange(of: engine.isLoading) { _, isLoading in
             guard !isLoading, engine.errorMessage == nil, !engine.result.isEmpty else { return }
-            HistoryStore.shared.add(actionName: lastAction?.name ?? "", input: contextText ?? "", result: engine.result)
+            HistoryStore.shared.add(actionName: lastAction?.name ?? "",
+                                    input: contextText ?? "", result: engine.result)
             let shouldCopyClose: Bool
             switch lastAction?.autoCopyClose {
             case .always:   shouldCopyClose = true
             case .never:    shouldCopyClose = false
             default:        shouldCopyClose = ConfigStore.shared.config.autoCopyAndClose
             }
-            if shouldCopyClose {
-                copyResult()
-                onClose()
-            }
+            if shouldCopyClose { copyResult(); onClose() }
         }
         .onKeyPress(.escape) { onClose(); return .handled }
         .onKeyPress { press in
@@ -82,6 +86,8 @@ struct OverlayView: View {
             return .handled
         }
     }
+
+    // MARK: - Header
 
     private var headerBar: some View {
         HStack(alignment: .firstTextBaseline) {
@@ -108,6 +114,8 @@ struct OverlayView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
+
+    // MARK: - History panel
 
     private var historyPanel: some View {
         Group {
@@ -152,6 +160,63 @@ struct OverlayView: View {
         }
     }
 
+    // MARK: - Feature 1: Clipboard preview (masked)
+
+    private var contextPreview: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+                .padding(.top, 1)
+
+            Group {
+                if isResolvingContext {
+                    Text(contextIsFromOCR ? "Rozpoznávám text z obrázku…" : "Čtu schránku…")
+                        .foregroundStyle(.secondary)
+                } else if let text = contextText {
+                    Text(maskedPreview(text))
+                        .lineLimit(showFullContext ? 6 : 2)
+                } else {
+                    Text("Schránka je prázdná")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.caption)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Eye toggle — only when there is text to reveal
+            if contextText != nil && !isResolvingContext {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { showFullContext.toggle() }
+                } label: {
+                    Image(systemName: showFullContext ? "eye.slash" : "eye")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(showFullContext ? "Skrýt obsah" : "Zobrazit obsah")
+            }
+        }
+        .padding(8)
+        .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    /// Returns first 3 chars + bullets when hidden, full text when revealed.
+    private func maskedPreview(_ text: String) -> String {
+        if showFullContext {
+            let limit = 400
+            return text.count > limit
+                ? String(text.prefix(limit)) + "…"
+                : text
+        }
+        let prefix = String(text.prefix(3))
+        let bulletCount = min(max(text.count - 3, 0), 24)
+        return prefix + String(repeating: "•", count: bulletCount)
+    }
+
+    // MARK: - Feature 2: Supplementary context field with session picker
+
     private var userContextField: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "text.bubble")
@@ -163,42 +228,149 @@ struct OverlayView: View {
                 .font(.caption)
                 .lineLimit(1...3)
                 .frame(maxWidth: .infinity)
+
+            // Session picker button
+            Button {
+                recentSessions = SessionStore.shared.recentSessions()
+                showSessionPicker = true
+            } label: {
+                Image(systemName: "tray.and.arrow.down")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Vložit výstup z uloženého záznamu (session)")
+            .popover(isPresented: $showSessionPicker, arrowEdge: .bottom) {
+                sessionPickerPopover
+            }
         }
         .padding(8)
         .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
-    private var contextPreview: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
-                .foregroundStyle(.secondary)
-                .font(.caption)
-                .padding(.top, 1)
-            Group {
-                if isResolvingContext {
-                    Text(contextIsFromOCR ? "Rozpoznávám text z obrázku…" : "Čtu schránku…")
-                        .foregroundStyle(.secondary)
-                } else if let text = contextText {
-                    Text(text.prefix(300) + (text.count > 300 ? "…" : ""))
-                } else {
-                    Text("Schránka je prázdná")
-                        .foregroundStyle(.secondary)
+    private var sessionPickerPopover: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Záznamy (session)")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button { showSessionPicker = false } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                 }
+                .buttonStyle(.plain)
             }
-            .font(.caption)
-            .lineLimit(4)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            Divider()
+            if recentSessions.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "tray")
+                        .font(.title3)
+                        .foregroundStyle(.tertiary)
+                    Text("Žádné záznamy")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if !ConfigStore.shared.config.recordSessions {
+                        Text("Zapni \"Zaznamenávat operace\" v Nastavení → Obecné")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(20)
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(recentSessions) { item in
+                            Button {
+                                insertSession(item)
+                                showSessionPicker = false
+                            } label: {
+                                HStack(spacing: 8) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(spacing: 4) {
+                                            Text(item.entry.agent)
+                                                .font(.caption)
+                                                .fontWeight(.medium)
+                                            Text("·")
+                                                .foregroundStyle(.tertiary)
+                                            Text(item.entry.timestamp, style: .relative)
+                                                .font(.caption2)
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                        Text(String(item.entry.input.prefix(60))
+                                             + (item.entry.input.count > 60 ? "…" : ""))
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "arrow.down.circle")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 7)
+                            }
+                            .buttonStyle(.plain)
+                            Divider()
+                        }
+                    }
+                }
+                .frame(maxHeight: 260)
+            }
         }
-        .padding(8)
-        .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .frame(width: 340)
     }
+
+    /// Inserts the session's output into the userContext field.
+    private func insertSession(_ item: SessionListItem) {
+        let header = "[\(item.entry.agent)]"
+        let body = item.entry.output
+        let snippet = body.count > 800 ? String(body.prefix(800)) + "…" : body
+        let block = "\(header)\n\(snippet)"
+        if userContext.isEmpty {
+            userContext = block
+        } else {
+            userContext += "\n\n" + block
+        }
+    }
+
+    // MARK: - Action buttons (with URL + fetch-status indicator)
 
     private var actionButtons: some View {
         VStack(spacing: 6) {
+            // URL detected — show fetch hint
+            if let text = contextText,
+               WebFetcher.isURL(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                HStack(spacing: 6) {
+                    Image(systemName: "globe")
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                    Text("URL detekována — obsah stránky se načte před odesláním do modelu")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 4)
+                .padding(.bottom, 2)
+            }
+            // Fetch in progress
+            if let status = engine.fetchStatus {
+                HStack(spacing: 6) {
+                    ProgressView().scaleEffect(0.6)
+                    Text(status)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 4)
+                .padding(.bottom, 2)
+            }
+
             if contextIsFromOCR {
-                actionButton(title: "Rozpoznat text z obrázku (OCR)", missingKey: false, isRunning: false) {
+                actionButton(title: "Rozpoznat text z obrázku (OCR)",
+                             missingKey: false, isRunning: false) {
                     if let text = contextText { engine.showText(text) }
                 }
                 Divider()
@@ -221,7 +393,8 @@ struct OverlayView: View {
         }
     }
 
-    private func actionButton(title: String, missingKey: Bool, isRunning: Bool, keyHint: String? = nil, action: @escaping () -> Void) -> some View {
+    private func actionButton(title: String, missingKey: Bool, isRunning: Bool,
+                               keyHint: String? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
                 Text(title)
@@ -248,14 +421,14 @@ struct OverlayView: View {
         .disabled(engine.isLoading || contextText == nil)
     }
 
+    // MARK: - Result area
+
     private var resultArea: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let error = engine.errorMessage, shownHistoryResult == nil {
                 HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                    Text(error)
-                        .foregroundStyle(.secondary)
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    Text(error).foregroundStyle(.secondary)
                 }
                 HStack(spacing: 8) {
                     if let action = lastAction {
@@ -278,16 +451,16 @@ struct OverlayView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 HStack {
-                    Button(didCopy ? "Zkopírováno ✓" : "Zkopírovat") {
-                        copyResult()
-                    }
-                    .keyboardShortcut("c", modifiers: .command)
+                    Button(didCopy ? "Zkopírováno ✓" : "Zkopírovat") { copyResult() }
+                        .keyboardShortcut("c", modifiers: .command)
                     Spacer()
                     Button("Zavřít") { onClose() }
                 }
             }
         }
     }
+
+    // MARK: - Helpers
 
     private func resolveVariables(in prompt: String) -> String {
         let df = DateFormatter()
@@ -311,6 +484,7 @@ struct OverlayView: View {
         userContext = ""
         shownHistoryResult = nil
         showHistory = false
+        showFullContext = false
         let pb = NSPasteboard.general
         contextIsFromOCR = pb.string(forType: .string)?.isEmpty != false
             && NSImage(pasteboard: pb) != nil
