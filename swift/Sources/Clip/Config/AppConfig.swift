@@ -134,22 +134,25 @@ struct AppConfig: Codable {
     var actions: [Action]
     var providers: [Provider]
     var configFolderPath: String?
+    var sessionFolderPath: String?   // Separate folder for per-day session Markdown files
     var autoCopyAndClose: Bool = false
     var historyLimit: Int = 5
     var modelPresets: [String: [ModelPreset]] = [:]
     var recordSessions: Bool = false
 
     init(schemaVersion: Int = 1, hotkeyKeyCode: Int, hotkeyModifiers: Int,
-         actions: [Action], providers: [Provider] = Provider.defaults,
-         configFolderPath: String? = nil, autoCopyAndClose: Bool = false,
+         actions: [Action], providers: [Provider] = [],
+         configFolderPath: String? = nil, sessionFolderPath: String? = nil,
+         autoCopyAndClose: Bool = false,
          historyLimit: Int = 5, modelPresets: [String: [ModelPreset]] = [:],
          recordSessions: Bool = false) {
         self.schemaVersion    = schemaVersion
         self.hotkeyKeyCode    = hotkeyKeyCode
         self.hotkeyModifiers  = hotkeyModifiers
         self.actions          = actions
-        self.providers        = providers.isEmpty ? Provider.defaults : providers
+        self.providers        = providers
         self.configFolderPath = configFolderPath
+        self.sessionFolderPath = sessionFolderPath
         self.autoCopyAndClose = autoCopyAndClose
         self.historyLimit     = historyLimit
         self.modelPresets     = modelPresets
@@ -158,34 +161,33 @@ struct AppConfig: Codable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        schemaVersion    = try c.decode(Int.self,      forKey: .schemaVersion)
-        hotkeyKeyCode    = try c.decode(Int.self,      forKey: .hotkeyKeyCode)
-        hotkeyModifiers  = try c.decode(Int.self,      forKey: .hotkeyModifiers)
-        actions          = try c.decode([Action].self, forKey: .actions)
-        configFolderPath = try c.decodeIfPresent(String.self,  forKey: .configFolderPath)
-        autoCopyAndClose = try c.decodeIfPresent(Bool.self,    forKey: .autoCopyAndClose) ?? false
-        historyLimit     = try c.decodeIfPresent(Int.self,     forKey: .historyLimit)     ?? 5
-        modelPresets     = try c.decodeIfPresent([String: [ModelPreset]].self, forKey: .modelPresets) ?? [:]
-        recordSessions   = try c.decodeIfPresent(Bool.self,    forKey: .recordSessions)   ?? false
-        let decoded      = try c.decodeIfPresent([Provider].self, forKey: .providers)     ?? []
-        providers        = decoded.isEmpty ? Provider.defaults : decoded
+        schemaVersion     = try c.decode(Int.self,      forKey: .schemaVersion)
+        hotkeyKeyCode     = try c.decode(Int.self,      forKey: .hotkeyKeyCode)
+        hotkeyModifiers   = try c.decode(Int.self,      forKey: .hotkeyModifiers)
+        actions           = try c.decode([Action].self, forKey: .actions)
+        configFolderPath  = try c.decodeIfPresent(String.self,  forKey: .configFolderPath)
+        sessionFolderPath = try c.decodeIfPresent(String.self,  forKey: .sessionFolderPath)
+        autoCopyAndClose  = try c.decodeIfPresent(Bool.self,    forKey: .autoCopyAndClose) ?? false
+        historyLimit      = try c.decodeIfPresent(Int.self,     forKey: .historyLimit)     ?? 5
+        modelPresets      = try c.decodeIfPresent([String: [ModelPreset]].self, forKey: .modelPresets) ?? [:]
+        recordSessions    = try c.decodeIfPresent(Bool.self,    forKey: .recordSessions)   ?? false
+        providers         = try c.decodeIfPresent([Provider].self, forKey: .providers)     ?? []
     }
 
     static var `default`: AppConfig {
-        let azureID = Provider.claudeAzureID.uuidString
-        return AppConfig(
+        AppConfig(
             schemaVersion: 1,
             hotkeyKeyCode: Int(kVK_Space),
             hotkeyModifiers: Int(cmdKey | shiftKey),
             actions: [
-                Action(name: "CZ",  systemPrompt: "Jsi editor textu. Tvůj jediný úkol: oprav gramatiku, nebo přelož vstupní text do češtiny. Pravidla bez výjimky: (1) Zachovej původní význam, styl a tón beze změny – formální zůstane formální, neformální neformální, ironický ironický, vulgární vulgární. (2) Neupravuj strukturu vět více než je gramaticky nutné. (3) Výstup obsahuje POUZE výsledný text. Žádný komentář, žádné vysvětlení, žádný úvod, žádný závěr, žádná otázka, žádné emoji, žádný markdown.", provider: azureID, model: "claude-sonnet-4-6", enabled: true),
-                Action(name: "EN",  systemPrompt: "You are a text editor. Your only task: correct grammar, or translate the input text into English. Rules without exception: (1) Preserve the original meaning, style and tone exactly – formal stays formal, casual stays casual, ironic stays ironic, vulgar stays vulgar. (2) Do not restructure sentences beyond what is grammatically necessary. (3) Output contains ONLY the resulting text. No commentary, no explanation, no introduction, no conclusion, no questions, no emoji, no markdown.", provider: azureID, model: "claude-sonnet-4-6", enabled: true),
-                Action(name: "ASK", systemPrompt: "Jsi faktografická databáze. Tvůj jediný úkol: odpověz na položený dotaz. Pravidla bez výjimky: (1) Odpověď musí být stručná, faktická a neutrální. (2) Žádné názory, hodnocení, emoce, doporučení ani spekulace. (3) Žádné doplňující otázky, žádné nabídky další pomoci, žádné závěrečné věty typu 'Chceš vědět více?'. (4) Žádné emoji, žádný markdown, žádné tučné písmo. (5) Pokud existuje více pohledů, uveď je vyváženě v jednom odstavci. (6) Pokud odpověď neznáš, napiš pouze: NULL.", provider: azureID, model: "claude-sonnet-4-6", enabled: true),
-                Action(name: "KEY", systemPrompt: "Jsi extraktor informací. Tvůj jediný úkol: extrahuj klíčové informace ze vstupního textu nebo obrázku. Pravidla bez výjimky: (1) Na první řádek napiš krátké shrnutí (1 věta) o čem obsah je, ve formátu: Shrnutí: <text>. (2) Každou další klíčovou informaci (fakta, čísla, hodnoty, data, názvy, URL adresy, závěry) napiš na samostatný řádek. (3) Žádný markdown, žádné odrážky, žádné hvězdičky, žádné tučné písmo, žádný komentář, žádný úvod, žádné emoji, žádné otázky. (4) Zachovej čísla a hodnoty přesně tak, jak jsou v originále.", provider: azureID, model: "claude-sonnet-4-6", enabled: true),
-                Action(name: "WEB", systemPrompt: "Jsi webový čtenář. Tvůj jediný úkol: zpracuj URL nebo doménové jméno ze vstupu (i bez http, např. csfd.cz) a vytvoř shrnutí stránky v češtině. Pravidla bez výjimky: (1) Výstup obsahuje POUZE shrnutí – o čem stránka je, klíčové informace, data, fakta. (2) Žádný markdown, žádné tučné písmo, žádné hvězdičky, žádné emoji, žádné otázky, žádné nabídky další pomoci. (3) Pokud stránka není dostupná, napiš pouze: URL přístup selhal. (4) Pokud vstup neobsahuje žádnou URL ani doménové jméno, napiš pouze: Žádná URL adresa nenalezena.", provider: azureID, model: "claude-sonnet-4-6", enabled: true),
-                Action(name: "M365", systemPrompt: "Jsi senior M365 service architekt. Odpovídej pouze na základě ověřených informací – preferuj oficiální Microsoft dokumentaci (learn.microsoft.com) a vždy uveď přímý odkaz. Nikdy neodhaduj – pokud si nejsi jistý, řekni to explicitně. Vždy uvažuj v kontextu enterprise prostředí a automaticky zohledni Hybrid scénáře (Hybrid Exchange, Hybrid Entra ID, Hybrid Modern Authentication) pokud je téma relevantní. Délku odpovědi přizpůsob vstupu – krátký dotaz, krátká odpověď; komplexní téma, detailní odpověď. Pokud odpověď vyžaduje aktuální nebo ověřená data, vyhledej je na webu. Pokud je vstupem příkaz nebo cmdlet: uveď účel, syntaxi s klíčovými parametry, příklad v enterprise nebo hybrid kontextu a odkaz na dokumentaci. Pokud je vstupem screenshot nebo obrázek: interpretuj ho jako chybu nebo problém, identifikuj komponentu (Entra ID, Exchange, Security, Defender), navrhni příčiny a řešení, uveď dokumentaci. Nikdy nevymýšlej cmdlety, parametry ani URL – pokud odkaz neznáš s jistotou, řekni to.", provider: azureID, model: "claude-sonnet-4-6", enabled: true),
+                Action(name: "CZ",  systemPrompt: "Jsi editor textu. Tvůj jediný úkol: oprav gramatiku, nebo přelož vstupní text do češtiny. Pravidla bez výjimky: (1) Zachovej původní význam, styl a tón beze změny – formální zůstane formální, neformální neformální, ironický ironický, vulgární vulgární. (2) Neupravuj strukturu vět více než je gramaticky nutné. (3) Výstup obsahuje POUZE výsledný text. Žádný komentář, žádné vysvětlení, žádný úvod, žádný závěr, žádná otázka, žádné emoji, žádný markdown.", provider: "", model: "", enabled: true),
+                Action(name: "EN",  systemPrompt: "You are a text editor. Your only task: correct grammar, or translate the input text into English. Rules without exception: (1) Preserve the original meaning, style and tone exactly – formal stays formal, casual stays casual, ironic stays ironic, vulgar stays vulgar. (2) Do not restructure sentences beyond what is grammatically necessary. (3) Output contains ONLY the resulting text. No commentary, no explanation, no introduction, no conclusion, no questions, no emoji, no markdown.", provider: "", model: "", enabled: true),
+                Action(name: "ASK", systemPrompt: "Jsi faktografická databáze. Tvůj jediný úkol: odpověz na položený dotaz. Pravidla bez výjimky: (1) Odpověď musí být stručná, faktická a neutrální. (2) Žádné názory, hodnocení, emoce, doporučení ani spekulace. (3) Žádné doplňující otázky, žádné nabídky další pomoci, žádné závěrečné věty typu 'Chceš vědět více?'. (4) Žádné emoji, žádný markdown, žádné tučné písmo. (5) Pokud existuje více pohledů, uveď je vyváženě v jednom odstavci. (6) Pokud odpověď neznáš, napiš pouze: NULL.", provider: "", model: "", enabled: true),
+                Action(name: "KEY", systemPrompt: "Jsi extraktor informací. Tvůj jediný úkol: extrahuj klíčové informace ze vstupního textu nebo obrázku. Pravidla bez výjimky: (1) Na první řádek napiš krátké shrnutí (1 věta) o čem obsah je, ve formátu: Shrnutí: <text>. (2) Každou další klíčovou informaci (fakta, čísla, hodnoty, data, názvy, URL adresy, závěry) napiš na samostatný řádek. (3) Žádný markdown, žádné odrážky, žádné hvězdičky, žádné tučné písmo, žádný komentář, žádný úvod, žádné emoji, žádné otázky. (4) Zachovej čísla a hodnoty přesně tak, jak jsou v originále.", provider: "", model: "", enabled: true),
+                Action(name: "WEB", systemPrompt: "Jsi webový čtenář. Tvůj jediný úkol: zpracuj URL nebo doménové jméno ze vstupu (i bez http, např. csfd.cz) a vytvoř shrnutí stránky v češtině. Pravidla bez výjimky: (1) Výstup obsahuje POUZE shrnutí – o čem stránka je, klíčové informace, data, fakta. (2) Žádný markdown, žádné tučné písmo, žádné hvězdičky, žádné emoji, žádné otázky, žádné nabídky další pomoci. (3) Pokud stránka není dostupná, napiš pouze: URL přístup selhal. (4) Pokud vstup neobsahuje žádnou URL ani doménové jméno, napiš pouze: Žádná URL adresa nenalezena.", provider: "", model: "", enabled: true),
+                Action(name: "M365", systemPrompt: "Jsi senior M365 service architekt. Odpovídej pouze na základě ověřených informací – preferuj oficiální Microsoft dokumentaci (learn.microsoft.com) a vždy uveď přímý odkaz. Nikdy neodhaduj – pokud si nejsi jistý, řekni to explicitně. Vždy uvažuj v kontextu enterprise prostředí a automaticky zohledni Hybrid scénáře (Hybrid Exchange, Hybrid Entra ID, Hybrid Modern Authentication) pokud je téma relevantní. Délku odpovědi přizpůsob vstupu – krátký dotaz, krátká odpověď; komplexní téma, detailní odpověď. Pokud odpověď vyžaduje aktuální nebo ověřená data, vyhledej je na webu. Pokud je vstupem příkaz nebo cmdlet: uveď účel, syntaxi s klíčovými parametry, příklad v enterprise nebo hybrid kontextu a odkaz na dokumentaci. Pokud je vstupem screenshot nebo obrázek: interpretuj ho jako chybu nebo problém, identifikuj komponentu (Entra ID, Exchange, Security, Defender), navrhni příčiny a řešení, uveď dokumentaci. Nikdy nevymýšlej cmdlety, parametry ani URL – pokud odkaz neznáš s jistotou, řekni to.", provider: "", model: "", enabled: true),
             ],
-            providers: Provider.defaults
+            providers: []
         )
     }
 }

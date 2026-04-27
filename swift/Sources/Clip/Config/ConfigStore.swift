@@ -5,7 +5,6 @@ final class ConfigStore: @unchecked Sendable {
     static let shared = ConfigStore()
 
     // Main config: ~/Library/Application Support/Clip/config.json
-    // Stores: hotkey, preferences, providers (no keys), configFolderPath.
     // When configFolderPath is set, agents and providers (incl. API keys) are
     // loaded from / saved to {configFolderPath}/agents.json and providers.json.
     private let fileURL: URL
@@ -59,20 +58,18 @@ final class ConfigStore: @unchecked Sendable {
             try? data.write(to: folder.appendingPathComponent("agents.json"), options: .atomic)
         }
 
-        // providers.json — array of ProviderExport with API keys from Keychain
-        let exports = config.providers.map { provider in
-            ProviderExport(
-                from: provider,
-                apiKey: try? KeychainStore.load(forProviderID: provider.id)
-            )
+        // providers.json — only write when there are providers to avoid overwriting with empty
+        if !config.providers.isEmpty {
+            let exports = config.providers.map { provider in
+                ProviderExport(
+                    from: provider,
+                    apiKey: try? KeychainStore.load(forProviderID: provider.id)
+                )
+            }
+            if let data = try? encoder.encode(exports) {
+                try? data.write(to: folder.appendingPathComponent("providers.json"), options: .atomic)
+            }
         }
-        if let data = try? encoder.encode(exports) {
-            try? data.write(to: folder.appendingPathComponent("providers.json"), options: .atomic)
-        }
-
-        // session/ subfolder
-        let sessionDir = folder.appendingPathComponent("session", isDirectory: true)
-        try? FileManager.default.createDirectory(at: sessionDir, withIntermediateDirectories: true)
     }
 
     // MARK: - Load helpers
@@ -92,9 +89,10 @@ final class ConfigStore: @unchecked Sendable {
             config.actions = actions
         }
 
-        // providers.json — [ProviderExport] array
+        // providers.json — [ProviderExport] array; only override when non-empty
         if let data = try? Data(contentsOf: folder.appendingPathComponent("providers.json")),
-           let exports = try? JSONDecoder().decode([ProviderExport].self, from: data) {
+           let exports = try? JSONDecoder().decode([ProviderExport].self, from: data),
+           !exports.isEmpty {
             config.providers = exports.map(\.asProvider)
             // Push API keys into Keychain
             for export in exports {

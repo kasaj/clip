@@ -50,12 +50,6 @@ struct SettingsView: View {
                         ConfigStore.shared.update { $0.historyLimit = val }
                         HistoryStore.shared.trim(to: val)
                     }
-                Toggle("Vždy zaznamenávat operace (session log)", isOn: $config.recordSessions)
-                    .onChange(of: config.recordSessions) { _, val in ConfigStore.shared.update { $0.recordSessions = val } }
-                if config.recordSessions {
-                    Text("Každá dokončená operace se uloží do: \(SessionStore.shared.sessionDirectory().path)/")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
             }
 
             Section("Globální zkratka") {
@@ -96,6 +90,38 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Složka záznamů (sessions)") {
+                HStack(spacing: 8) {
+                    Image(systemName: "calendar.badge.clock").foregroundStyle(.secondary)
+                    Text(config.sessionFolderPath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Nevybráno")
+                        .lineLimit(1).truncationMode(.middle)
+                        .foregroundStyle(config.sessionFolderPath == nil ? .secondary : .primary)
+                    Spacer()
+                    Button("Vybrat…") { pickSessionFolder() }
+                    if config.sessionFolderPath != nil {
+                        Button("Zrušit") {
+                            config.sessionFolderPath = nil
+                            ConfigStore.shared.update { $0.sessionFolderPath = nil }
+                        }
+                        .foregroundStyle(.red)
+                    }
+                }
+                if let p = config.sessionFolderPath {
+                    Text(p).font(.caption2).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                    Text("Záznamy se ukládají jako Markdown soubory (YYYY-MM-DD.md) do této složky. Ideální pro Obsidian nebo iCloud.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else if let p = config.configFolderPath, !p.isEmpty {
+                    Text("Záznamy se ukládají do: \(p)/sessions/ (dle složky konfigurace).")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text("Záznamy jsou vypnuty — vyber složku konfigurace nebo vlastní složku záznamů.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Toggle("Vždy zaznamenávat operace automaticky", isOn: $config.recordSessions)
+                    .onChange(of: config.recordSessions) { _, val in ConfigStore.shared.update { $0.recordSessions = val } }
+                    .disabled(config.sessionFolderPath == nil && (config.configFolderPath ?? "").isEmpty)
+            }
+
             Section("O aplikaci") {
                 HStack(spacing: 8) {
                     Text("Clip")
@@ -103,11 +129,7 @@ struct SettingsView: View {
                     Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Text("Autor: Jan Žák")
-                    .font(.caption).foregroundStyle(.secondary)
                 Link("github.com/kasaj/clip", destination: URL(string: "https://github.com/kasaj/clip")!)
-                    .font(.caption)
-                Link("jan-zak.cz", destination: URL(string: "https://jan-zak.cz")!)
                     .font(.caption)
             }
         }
@@ -130,6 +152,21 @@ struct SettingsView: View {
                 config.configFolderPath = path
                 ConfigStore.shared.update { $0.configFolderPath = path }
                 ConfigStore.shared.reloadFromFolder()
+                config = ConfigStore.shared.config
+            }
+        }
+    }
+
+    private func pickSessionFolder() {
+        let panel = NSOpenPanel()
+        panel.title = "Vybrat složku záznamů"
+        panel.canChooseFiles = false; panel.canChooseDirectories = true; panel.canCreateDirectories = true
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            let path = url.path
+            DispatchQueue.main.async {
+                config.sessionFolderPath = path
+                ConfigStore.shared.update { $0.sessionFolderPath = path }
                 config = ConfigStore.shared.config
             }
         }
@@ -255,6 +292,23 @@ struct SettingsView: View {
     }
 }
 
+// MARK: - Provider test state
+
+enum ProviderTestState {
+    case idle
+    case testing
+    case success(String)
+    case failure(String)
+
+    var color: Color {
+        switch self {
+        case .idle, .testing: .secondary
+        case .success: .green
+        case .failure: .red
+        }
+    }
+}
+
 // MARK: - Provider Row
 
 struct ProviderRow: View {
@@ -269,6 +323,7 @@ struct ProviderRow: View {
     @State private var expanded = false
     @State private var keyField = ""
     @State private var confirmDelete = false
+    @State private var testState: ProviderTestState = .idle
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -357,6 +412,31 @@ struct ProviderRow: View {
                         }
                     }
 
+                    // Test connectivity
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("").frame(width: 80)
+                        Button {
+                            Task { await runTest() }
+                        } label: {
+                            if case .testing = testState {
+                                HStack(spacing: 6) { ProgressView().scaleEffect(0.7); Text("Testuji…") }
+                            } else {
+                                Label("Otestovat připojení", systemImage: "antenna.radiowaves.left.and.right")
+                            }
+                        }
+                        .disabled({ if case .testing = testState { true } else { false } }())
+                        switch testState {
+                        case .idle: EmptyView()
+                        case .testing: EmptyView()
+                        case .success(let msg):
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                            Text(msg).font(.caption).foregroundStyle(.green).lineLimit(2)
+                        case .failure(let msg):
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                            Text(msg).font(.caption).foregroundStyle(.red).lineLimit(3)
+                        }
+                    }
+
                     // Model fetch
                     if provider.kind != .custom {
                         HStack {
@@ -389,6 +469,16 @@ struct ProviderRow: View {
             keySaveStatus[provider.id] = true
             onChange()
         } catch { keySaveStatus[provider.id] = false }
+    }
+
+    private func runTest() async {
+        testState = .testing
+        do {
+            let reply = try await ProviderFactory.test(provider: provider)
+            testState = .success(reply.prefix(80).description)
+        } catch {
+            testState = .failure(error.localizedDescription)
+        }
     }
 }
 

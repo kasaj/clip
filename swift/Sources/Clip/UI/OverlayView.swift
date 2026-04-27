@@ -15,7 +15,7 @@ struct OverlayView: View {
     @State private var isResolvingContext = false
     @State private var contextIsFromOCR = false
     @State private var showFullContext = false
-    @State private var useSelectedText = false       // clipboard vs selected text
+    @State private var inputSource: InputSource = .clipboard
 
     // Operation options
     @State private var recordThisSession = false     // per-op session recording
@@ -37,9 +37,7 @@ struct OverlayView: View {
     @State private var didCopy = false
 
     private var actions: [Action] { ConfigStore.shared.actions.filter(\.enabled) }
-    private var hasConfigFolder: Bool {
-        !(ConfigStore.shared.config.configFolderPath ?? "").isEmpty
-    }
+    private var hasSessionFolder: Bool { SessionStore.shared.sessionDirectory() != nil }
     private var hasSelectedText: Bool { state.capturedSelectedText != nil }
     private var displayedResult: String? {
         shownHistoryResult ?? (engine.result.isEmpty ? nil : engine.result)
@@ -49,6 +47,9 @@ struct OverlayView: View {
         return true
     }
     private var hasResult: Bool { displayedResult != nil || engine.errorMessage != nil }
+    private var canRunAction: Bool {
+        !engine.isLoading && (contextText != nil || (inputSource == .noContext && !userContext.isEmpty))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -162,13 +163,13 @@ struct OverlayView: View {
                                 // Open session file if recorded
                                 if let url = entry.sessionFileURL {
                                     Button {
-                                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                                        NSWorkspace.shared.open(url)
                                     } label: {
-                                        Image(systemName: "doc.text.magnifyingglass")
+                                        Image(systemName: "doc.text")
                                             .font(.caption).foregroundStyle(.secondary)
                                     }
                                     .buttonStyle(.plain)
-                                    .help("Otevřít záznam v Finderu")
+                                    .help("Otevřít záznam (\(url.lastPathComponent))")
                                 }
                             }
                             .padding(.horizontal, 16).padding(.vertical, 8)
@@ -181,15 +182,17 @@ struct OverlayView: View {
         }
     }
 
-    // MARK: - Feature 1: Clipboard preview (masked) + source toggle
+    // MARK: - Context preview + source picker
 
     private var contextPreview: some View {
         VStack(spacing: 6) {
             HStack(alignment: .top, spacing: 8) {
-                Image(systemName: contextIsFromOCR ? "doc.viewfinder" : (useSelectedText ? "text.cursor" : "doc.on.clipboard"))
+                Image(systemName: inputSource.icon(isOCR: contextIsFromOCR))
                     .foregroundStyle(.secondary).font(.caption).padding(.top, 1)
                 Group {
-                    if isResolvingContext {
+                    if inputSource == .noContext {
+                        Text("Vstup: pouze doplňkový kontext níže").foregroundStyle(.secondary)
+                    } else if isResolvingContext {
                         Text(contextIsFromOCR ? "Rozpoznávám text…" : "Čtu kontext…")
                             .foregroundStyle(.secondary)
                     } else if let text = contextText {
@@ -200,7 +203,7 @@ struct OverlayView: View {
                 }
                 .font(.caption).frame(maxWidth: .infinity, alignment: .leading)
 
-                if contextText != nil && !isResolvingContext {
+                if contextText != nil && !isResolvingContext && inputSource != .noContext {
                     Button { withAnimation(.easeInOut(duration: 0.15)) { showFullContext.toggle() } } label: {
                         Image(systemName: showFullContext ? "eye.slash" : "eye")
                             .font(.caption).foregroundStyle(.secondary)
@@ -209,17 +212,23 @@ struct OverlayView: View {
                 }
             }
 
-            // Source toggle: clipboard / selected text
-            if hasSelectedText {
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    Toggle(isOn: $useSelectedText) {
-                        Text(useSelectedText ? "Vybraný text" : "Schránka")
-                            .font(.caption2).foregroundStyle(.secondary)
+            // 3-way source picker — always visible
+            HStack(spacing: 4) {
+                ForEach(InputSource.allCases, id: \.self) { src in
+                    let available = src.isAvailable(hasSelectedText: hasSelectedText)
+                    Button {
+                        if available { inputSource = src; resolveContext() }
+                    } label: {
+                        Label(src.label, systemImage: src.icon(isOCR: false))
+                            .font(.caption2)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(inputSource == src ? Color.accentColor.opacity(0.15) : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .foregroundStyle(inputSource == src ? .primary : (available ? .secondary : .tertiary))
                     }
-                    .toggleStyle(.checkbox)
-                    .onChange(of: useSelectedText) { resolveContext() }
+                    .buttonStyle(.plain)
+                    .disabled(!available)
+                    .help(src.help(hasSelectedText: hasSelectedText))
                 }
             }
         }
@@ -255,8 +264,8 @@ struct OverlayView: View {
     @ViewBuilder
     private var optionCheckboxes: some View {
         HStack(spacing: 16) {
-            // Session recording (only when folder configured)
-            if hasConfigFolder {
+            // Session recording (only when session folder configured)
+            if hasSessionFolder {
                 Toggle(isOn: $recordThisSession) {
                     Label("Zaznamenat", systemImage: "square.and.arrow.down")
                         .font(.caption2).foregroundStyle(.secondary)
@@ -346,7 +355,7 @@ struct OverlayView: View {
             .padding(.vertical, 2)
         }
         .buttonStyle(.bordered)
-        .disabled(engine.isLoading || contextText == nil)
+        .disabled(!canRunAction)
     }
 
     // MARK: - Result area
@@ -403,7 +412,6 @@ struct OverlayView: View {
         userContextFocused = false
         engine.reset()
         speech.stop()
-        isResolvingContext = true
         contextText = nil
         contextError = nil
         didCopy = false
@@ -412,40 +420,54 @@ struct OverlayView: View {
         showFullContext = false
         recordThisSession = false
 
-        // If selected text is available and toggle is on, use it directly
-        if useSelectedText, let sel = state.capturedSelectedText, !sel.isEmpty {
-            contextText = sel
+        switch inputSource {
+        case .noContext:
+            // No clipboard/selected text — input comes entirely from userContext
             contextIsFromOCR = false
             isResolvingContext = false
-            return
-        }
 
-        // Otherwise: clipboard / OCR
-        let pb = NSPasteboard.general
-        contextIsFromOCR = pb.string(forType: .string)?.isEmpty != false && NSImage(pasteboard: pb) != nil
-        Task {
-            let result = await ContextResolver.resolve()
-            switch result {
-            case .text(let text, let isOCR): contextText = text; contextIsFromOCR = isOCR
-            case .error(let error): contextError = error.localizedDescription
+        case .selectedText:
+            if let sel = state.capturedSelectedText, !sel.isEmpty {
+                contextText = sel
+                contextIsFromOCR = false
             }
             isResolvingContext = false
+
+        case .clipboard:
+            isResolvingContext = true
+            let pb = NSPasteboard.general
+            contextIsFromOCR = pb.string(forType: .string)?.isEmpty != false && NSImage(pasteboard: pb) != nil
+            Task {
+                let result = await ContextResolver.resolve()
+                switch result {
+                case .text(let text, let isOCR): contextText = text; contextIsFromOCR = isOCR
+                case .error(let error): contextError = error.localizedDescription
+                }
+                isResolvingContext = false
+            }
         }
     }
 
     private func runAction(_ action: Action) {
-        guard let text = contextText else { return }
         userContextFocused = false
         lastAction = action
         didCopy = false
         shownHistoryResult = nil
         var resolved = action
         resolved.systemPrompt = resolveVariables(in: action.systemPrompt)
+
         let input: String
-        if !userContext.isEmpty && !action.systemPrompt.contains("{{kontext}}") {
-            input = text + "\n\n---\nDoplňkový kontext: " + userContext
+        if inputSource == .noContext {
+            // Only the supplementary context field
+            input = userContext
+        } else if let text = contextText {
+            if !userContext.isEmpty && !action.systemPrompt.contains("{{kontext}}") {
+                input = text + "\n\n---\nDoplňkový kontext: " + userContext
+            } else {
+                input = text
+            }
         } else {
-            input = text
+            return  // No content available
         }
         engine.run(action: resolved, input: input, recordSession: recordThisSession)
     }
@@ -455,6 +477,42 @@ struct OverlayView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         didCopy = true
+    }
+}
+
+// MARK: - InputSource
+
+enum InputSource: String, CaseIterable {
+    case clipboard    = "clipboard"
+    case selectedText = "selectedText"
+    case noContext    = "noContext"
+
+    var label: String {
+        switch self {
+        case .clipboard:    "Schránka"
+        case .selectedText: "Vybraný text"
+        case .noContext:    "Bez kontextu"
+        }
+    }
+
+    func icon(isOCR: Bool) -> String {
+        switch self {
+        case .clipboard:    isOCR ? "doc.viewfinder" : "doc.on.clipboard"
+        case .selectedText: "text.cursor"
+        case .noContext:    "rectangle.and.pencil.and.ellipsis"
+        }
+    }
+
+    func isAvailable(hasSelectedText: Bool) -> Bool {
+        self == .selectedText ? hasSelectedText : true
+    }
+
+    func help(hasSelectedText: Bool) -> String {
+        switch self {
+        case .clipboard:    "Použít obsah schránky jako vstup"
+        case .selectedText: hasSelectedText ? "Použít označený text jako vstup" : "Označený text není dostupný (vyber text před stisknutím zkratky)"
+        case .noContext:    "Spustit agenta pouze s textem z pole Doplňkový kontext"
+        }
     }
 }
 
