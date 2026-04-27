@@ -14,9 +14,13 @@ Nativní macOS menu bar aplikace. Zkopíruješ text nebo obrázek, stiskneš glo
 
 ## Instalace a sestavení
 
+> **Poznámka:** Release ZIP obsahuje předkompilovanou .app. Pokud chceš nejnovější verzi
+> se všemi funkcemi (Složka konfigurace, Claude Azure provider), zkompiluj z Xcode:
+
 ```bash
 open swift/JZLLMContext.xcodeproj
 # Xcode: Product → Run  (⌘R)
+# nebo: Product → Archive → Distribute → Copy App
 ```
 
 Aplikace se spustí jako menu bar ikona. Při prvním spuštění požádá o přístup k systémovým klávesovým zkratkám.
@@ -81,12 +85,21 @@ Když nastavíš složku (např. `~/iDrive/Clip/`), aplikace:
 
 ## Nasazení na nový Mac
 
-1. Stáhni a sestav aplikaci z `swift/JZLLMContext.xcodeproj`
+### Pokud máš iDrive složku (`Clip-config/`) z předchozího zařízení:
+
+1. Sestav nebo nainstaluj aplikaci
 2. Spusť aplikaci
-3. **Nastavení → Obecné → Složka konfigurace** → nastav na iDrive / OneDrive složku
-   - Agenti a endpointy se načtou automaticky z `agents.json` a `providers.json`
-4. **Nastavení → Providery** → zadej API klíče (jen jednou na každém zařízení)
-5. Hotovo
+3. **Nastavení → Obecné → Složka konfigurace** → vyber svou `Clip-config/` složku na iDrive
+4. Hotovo — agenti, endpointy i API klíče se načtou automaticky z `providers.json`
+
+### První instalace (bez iDrive složky):
+
+1. Sestav nebo nainstaluj aplikaci
+2. Spusť aplikaci
+3. **Nastavení → Providery** → zadej API klíče a endpointy
+4. **Nastavení → Obecné → Složka konfigurace** → nastav iDrive složku (např. `~/Library/Mobile Documents/com~apple~CloudDocs/Clip-config/`)
+5. Aplikace okamžitě zapíše `agents.json` a `providers.json` (vč. klíčů) do té složky
+6. Na dalším Macu stačí bod 1–3
 
 ---
 

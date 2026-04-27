@@ -16,9 +16,13 @@ struct ModelPreset: Identifiable, Codable, Equatable {
 }
 
 // MARK: - ProvidersConfig
-// Stored in {configFolder}/providers.json — endpoints only, NO API keys.
+// Stored in {configFolder}/providers.json.
+// Contains endpoints AND API keys so the entire provider setup is portable
+// via iDrive / OneDrive. Keys are synced to/from Keychain automatically.
+// This file is gitignored — it lives only in the user's private sync folder.
 
 struct ProvidersConfig: Codable {
+    // Endpoints
     var azureAnthropicEndpoint: String?
     var azureAnthropicAPIVersion: String?
     var azureEndpoint: String?
@@ -28,6 +32,14 @@ struct ProvidersConfig: Codable {
     var azureDeploymentName2: String?
     var azureAPIVersion2: String?
     var customOpenAIBaseURL: String?
+
+    // API keys (synced to Keychain on load; read from Keychain on save)
+    var keyAzureAnthropic: String?
+    var keyAnthropic: String?
+    var keyAzureOpenai: String?
+    var keyAzureOpenai2: String?
+    var keyOpenai: String?
+    var keyCustomOpenAI: String?
 }
 
 // MARK: - AppConfig
