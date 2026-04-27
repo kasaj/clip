@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0C3A306A2EAF3CCD2796ACC4 /* ContextResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF007160F929203C6C07C38F /* ContextResolver.swift */; };
 		0C6B418CF3F45A62A78C1956 /* AnthropicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EEB15BFF1A234C902698B41 /* AnthropicProvider.swift */; };
+		AA11223344556677889900AA /* AzureAnthropicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677889900BB /* AzureAnthropicProvider.swift */; };
 		107E3F54587858A4B2D73F27 /* OpenAIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E16BF47BB95B6257237524 /* OpenAIProvider.swift */; };
 		1548F1816AF1565C5FFBB2FD /* ProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 442548DEA3D00387E384367A /* ProviderFactory.swift */; };
 		1C2B45E4AA8EE0C9E320128D /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 299358F7A9CBA63430E341F7 /* HotkeyRecorderView.swift */; };
@@ -47,6 +48,7 @@
 		84778605AF88F656C97B010D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8A1B77ACB12636472CE78D41 /* JZLLMContext.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JZLLMContext.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8EEB15BFF1A234C902698B41 /* AnthropicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicProvider.swift; sourceTree = "<group>"; };
+		BB11223344556677889900BB /* AzureAnthropicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AzureAnthropicProvider.swift; sourceTree = "<group>"; };
 		CC7788BE265D802DAD645314 /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
 		CF007160F929203C6C07C38F /* ContextResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextResolver.swift; sourceTree = "<group>"; };
 		D0273500A6EB60B489DBD14E /* JZLLMContext.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = JZLLMContext.entitlements; sourceTree = "<group>"; };
@@ -150,6 +152,7 @@
 			isa = PBXGroup;
 			children = (
 				8EEB15BFF1A234C902698B41 /* AnthropicProvider.swift */,
+				BB11223344556677889900BB /* AzureAnthropicProvider.swift */,
 				0E61E37FF25C63DFBED2FFA5 /* LLMProvider.swift */,
 				F3E16BF47BB95B6257237524 /* OpenAIProvider.swift */,
 				442548DEA3D00387E384367A /* ProviderFactory.swift */,
@@ -230,6 +233,7 @@
 				55A7384824E1E417674390AE /* AboutView.swift in Sources */,
 				4FF3E3C125C7FAE2DB6C23D8 /* ActionEngine.swift in Sources */,
 				0C6B418CF3F45A62A78C1956 /* AnthropicProvider.swift in Sources */,
+				AA11223344556677889900AA /* AzureAnthropicProvider.swift in Sources */,
 				CEA7BC87270AC61BA80F47CE /* App.swift in Sources */,
 				970E06E15E4CBB1D8EF21A98 /* AppConfig.swift in Sources */,
 				9663B7E3F4E9E183B640A3A1 /* AppDelegate.swift in Sources */,
