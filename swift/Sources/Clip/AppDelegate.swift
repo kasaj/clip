@@ -6,7 +6,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyManager: HotkeyManager?
     private var overlayWindowController: OverlayWindowController?
     private var settingsWindowController: NSWindowController?
-    private var aboutWindowController: NSWindowController?
     private var statusItem: NSStatusItem?
     private var statusMenu: NSMenu?
     private var hotkeyState = HotkeyState.shared
@@ -51,10 +50,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(headerItem)
         menu.addItem(.separator())
 
-        let aboutItem = NSMenuItem(title: "O aplikaci Clip", action: #selector(openAbout), keyEquivalent: "")
-        aboutItem.target = self
-        menu.addItem(aboutItem)
-
         let settingsItem = NSMenuItem(title: "Nastavení…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -74,25 +69,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             showOverlay()
         }
-    }
-
-    @objc private func openAbout() {
-        if aboutWindowController == nil {
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 280, height: 300),
-                styleMask: [.titled, .closable],
-                backing: .buffered,
-                defer: false
-            )
-            window.title = "O aplikaci"
-            window.isRestorable = false
-            window.contentView = NSHostingView(rootView: AboutView())
-            window.center()
-            aboutWindowController = NSWindowController(window: window)
-        }
-        NSApp.activate(ignoringOtherApps: true)
-        aboutWindowController?.showWindow(nil)
-        aboutWindowController?.window?.makeKeyAndOrderFront(nil)
     }
 
     @objc private func openSettings() {

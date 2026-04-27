@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "593781E5807EEFD0487D230E"
-               BuildableName = "JZLLMContext.app"
-               BlueprintName = "JZLLMContext"
-               ReferencedContainer = "container:JZLLMContext.xcodeproj">
+               BuildableName = "Clip.app"
+               BlueprintName = "Clip"
+               ReferencedContainer = "container:Clip.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "593781E5807EEFD0487D230E"
-            BuildableName = "JZLLMContext.app"
-            BlueprintName = "JZLLMContext"
-            ReferencedContainer = "container:JZLLMContext.xcodeproj">
+            BuildableName = "Clip.app"
+            BlueprintName = "Clip"
+            ReferencedContainer = "container:Clip.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -58,9 +58,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "593781E5807EEFD0487D230E"
-            BuildableName = "JZLLMContext.app"
-            BlueprintName = "JZLLMContext"
-            ReferencedContainer = "container:JZLLMContext.xcodeproj">
+            BuildableName = "Clip.app"
+            BlueprintName = "Clip"
+            ReferencedContainer = "container:Clip.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -77,9 +77,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "593781E5807EEFD0487D230E"
-            BuildableName = "JZLLMContext.app"
-            BlueprintName = "JZLLMContext"
-            ReferencedContainer = "container:JZLLMContext.xcodeproj">
+            BuildableName = "Clip.app"
+            BlueprintName = "Clip"
+            ReferencedContainer = "container:Clip.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>

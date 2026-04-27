@@ -4,8 +4,11 @@ import SwiftUI
 @MainActor
 final class OverlayState: ObservableObject {
     @Published var refreshID = UUID()
+    /// Selected text captured at hotkey time, before overlay steals focus.
+    var capturedSelectedText: String?
 
-    func triggerRefresh() {
+    func triggerRefresh(selectedText: String? = nil) {
+        capturedSelectedText = selectedText
         refreshID = UUID()
     }
 }
@@ -13,7 +16,7 @@ final class OverlayState: ObservableObject {
 @MainActor
 final class OverlayWindowController: NSObject {
     private var panel: NSPanel?
-    private let state = OverlayState()
+    let state = OverlayState()
     var onOpenSettings: (() -> Void)?
 
     func showOverlay() {
@@ -21,7 +24,9 @@ final class OverlayWindowController: NSObject {
             panel = makePanel()
             panel?.center()
         }
-        state.triggerRefresh()
+        // Capture selected text BEFORE panel takes focus (accessibility reads active app)
+        let selectedText = ContextResolver.captureSelectedText()
+        state.triggerRefresh(selectedText: selectedText)
         panel?.makeKeyAndOrderFront(nil)
     }
 
@@ -33,8 +38,7 @@ final class OverlayWindowController: NSObject {
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 640, height: 480),
             styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel, .hudWindow, .resizable],
-            backing: .buffered,
-            defer: false
+            backing: .buffered, defer: false
         )
         panel.isFloatingPanel = true
         panel.isRestorable = false
@@ -44,13 +48,13 @@ final class OverlayWindowController: NSObject {
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        let overlayView = OverlayView(state: state, onClose: { [weak self] in
+        let view = OverlayView(state: state, onClose: { [weak self] in
             self?.hideOverlay()
         }, onOpenSettings: { [weak self] in
             self?.hideOverlay()
             self?.onOpenSettings?()
         })
-        panel.contentView = NSHostingView(rootView: overlayView)
+        panel.contentView = NSHostingView(rootView: view)
         return panel
     }
 }

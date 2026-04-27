@@ -6,20 +6,21 @@ struct HistoryEntry: Identifiable {
     let inputSnippet: String
     let result: String
     let date: Date
+    let sessionFileURL: URL?    // Non-nil when this operation was recorded to disk
 }
 
 @MainActor
 final class HistoryStore: ObservableObject {
     static let shared = HistoryStore()
     @Published private(set) var entries: [HistoryEntry] = []
-
     private init() {}
 
-    func add(actionName: String, input: String, result: String) {
+    func add(actionName: String, input: String, result: String, sessionFileURL: URL? = nil) {
         let limit = ConfigStore.shared.config.historyLimit
         guard limit > 0 else { return }
         entries.insert(
-            HistoryEntry(actionName: actionName, inputSnippet: String(input.prefix(80)), result: result, date: Date()),
+            HistoryEntry(actionName: actionName, inputSnippet: String(input.prefix(80)),
+                         result: result, date: Date(), sessionFileURL: sessionFileURL),
             at: 0
         )
         if entries.count > limit { entries = Array(entries.prefix(limit)) }
