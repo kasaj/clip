@@ -1,0 +1,11 @@
+{
+  "azureAnthropicEndpoint": "https://YOUR_RESOURCE.services.ai.azure.com/anthropic",
+  "azureAnthropicAPIVersion": "2024-10-21",
+  "azureEndpoint": "https://YOUR_RESOURCE.cognitiveservices.azure.com/openai/deployments/YOUR_DEPLOYMENT",
+  "azureDeploymentName": "",
+  "azureAPIVersion": "2025-01-01-preview",
+  "azureEndpoint2": "",
+  "azureDeploymentName2": "",
+  "azureAPIVersion2": "",
+  "customOpenAIBaseURL": ""
+}

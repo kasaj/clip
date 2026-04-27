@@ -1,5 +1,18 @@
-myconfig.yaml
-session/
-__pycache__/
-*.pyc
+# Python – private config (contains real API keys)
+python/myconfig.yaml
+python/session/
+python/__pycache__/
+python/*.pyc
+
+# Swift – private config (contains real endpoints; agents.json is public in swift/)
+swift/providers.json
+
+# macOS
 .DS_Store
+*.DS_Store
+
+# Xcode
+swift/xcuserdata/
+swift/*.xcodeproj/xcuserdata/
+swift/DerivedData/
+swift/*.xcworkspace/xcuserdata/
