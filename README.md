@@ -15,7 +15,7 @@ Existují dvě varianty — Python (rychlé nasazení, bez kompilace) a Swift (n
 | UI | tkinter + osascript dialogy | Nativní SwiftUI overlay |
 | Konfigurace | `myconfig.yaml` (vše vč. klíčů) | Keychain (klíče) + JSON soubory |
 | Sync mezi zařízeními | ruční kopírování souboru | Složka na iDrive / OneDrive |
-| Stav | stabilní, legacy | aktivně vyvíjená |
+| Stav | legacy | aktivně vyvíjená |
 
 Obě varianty lze provozovat současně — nemají konflikt hotkey (různé mechanismy).
 
