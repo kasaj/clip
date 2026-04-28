@@ -61,6 +61,8 @@ struct OverlayView: View {
         Group {
             if showingSettings {
                 settingsWrapper
+            } else if editingAction != nil {
+                actionEditPanel
             } else {
                 overlayContent
             }
@@ -108,18 +110,24 @@ struct OverlayView: View {
                 duration: 0
             )
         }
-        .onKeyPress(.escape) { close(); return .handled }
+        .onKeyPress(.escape) {
+            if editingAction != nil { editingAction = nil; return .handled }
+            close(); return .handled
+        }
         .onKeyPress { press in
-            guard !promptFocused,
+            guard !promptFocused, editingAction == nil,
                   let digit = Int(press.characters),
                   digit >= 1, digit <= actions.count else { return .ignored }
             runAction(actions[digit - 1])
             return .handled
         }
-        .sheet(item: $editingAction) { action in
-            ActionEditSheet(action: action) {
-                editingAction = nil
-                ConfigStore.shared.update { $0.actions = ConfigStore.shared.config.actions }
+        // Save action edits back to ConfigStore whenever editingAction changes
+        .onChange(of: editingAction) { _, action in
+            guard let action else { return }
+            ConfigStore.shared.update { store in
+                if let idx = store.actions.firstIndex(where: { $0.id == action.id }) {
+                    store.actions[idx] = action
+                }
             }
         }
     }
@@ -204,6 +212,42 @@ struct OverlayView: View {
             .padding(.horizontal, 16).padding(.vertical, 12)
             Divider()
             SettingsView()
+        }
+    }
+
+    // MARK: - Inline action editor (replaces sheet to avoid floating-panel close bug)
+
+    private var actionEditPanel: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { editingAction = nil }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left").font(.subheadline)
+                        Text("Back").font(.subheadline)
+                    }
+                }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+                Spacer()
+                Text(editingAction?.name ?? "Akce").font(.headline)
+                Spacer()
+                Button(action: close) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.red)
+                        .font(.system(size: 15))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            Divider()
+            ScrollView {
+                ActionRow(action: Binding(
+                    get: { editingAction ?? Action(name: "", systemPrompt: "", provider: "", model: "", enabled: true) },
+                    set: { editingAction = $0 }
+                ))
+                .padding(16)
+            }
         }
     }
 
@@ -342,13 +386,12 @@ struct OverlayView: View {
 
     private func maskedPreview(_ text: String) -> String {
         if showFullContext {
-            let limit = ConfigStore.shared.config.clipboardPreviewChars
-            if limit == 0 { return text }
-            return text.count > limit ? String(text.prefix(limit)) + "…" : text
+            return text   // eye = always full text, no limit
         }
-        let prefix = String(text.prefix(3))
-        let bullets = String(repeating: "•", count: min(max(text.count - 3, 0), 24))
-        return prefix + bullets
+        // Compact view: show first N chars per setting (default 300)
+        let limit = ConfigStore.shared.config.clipboardPreviewChars
+        if limit == 0 { return text }
+        return text.count > limit ? String(text.prefix(limit)) + "…" : text
     }
 
     // MARK: - Prompt field
@@ -382,12 +425,9 @@ struct OverlayView: View {
                 .help("Uložit vstup a výstup do session logu")
             }
 
-            // URLFetch — highlighted when clipboard text contains any URL
-            let hasURLs = contextText.map { WebFetcher.containsAnyURL($0) } ?? false
             Toggle(isOn: $loadURL) {
                 Label("URLFetch", systemImage: "globe")
-                    .font(.caption2)
-                    .foregroundStyle(hasURLs ? Color.accentColor : Color.secondary)
+                    .font(.caption2).foregroundStyle(.secondary)
             }
             .toggleStyle(.checkbox)
             .disabled(loadURLAuto)
@@ -395,12 +435,9 @@ struct OverlayView: View {
                   ? "Clipboard obsahuje URL — stránka bude načtena automaticky"
                   : "Načíst obsah URL z clipboardu a přidat ke kontextu")
 
-            // Ignore — highlighted when clipboard has content
-            let hasContent = (contextText != nil || contextImageData != nil) && !isResolvingContext
             Toggle(isOn: $ignoreClipboard) {
                 Label("Ignore", systemImage: "doc.on.clipboard.fill")
-                    .font(.caption2)
-                    .foregroundStyle(hasContent ? Color.primary : Color.secondary)
+                    .font(.caption2).foregroundStyle(.secondary)
             }
             .toggleStyle(.checkbox)
             .help("Ignorovat clipboard; spustit agenta pouze s promptem")
@@ -417,8 +454,7 @@ struct OverlayView: View {
             let imageAvailable = contextIsFromOCR && ocrSourceImageData != nil && !ignoreClipboard
             Toggle(isOn: $sendOCRImage) {
                 Label("+ image", systemImage: "photo")
-                    .font(.caption2)
-                    .foregroundStyle(imageAvailable ? .primary : .secondary)
+                    .font(.caption2).foregroundStyle(.secondary)
             }
             .toggleStyle(.checkbox)
             .disabled(!imageAvailable)
@@ -426,7 +462,7 @@ struct OverlayView: View {
                   ? "Přiložit také zdrojový obrázek vedle OCR textu"
                   : "Clipboard neobsahuje obrázek s textem")
 
-            // OCR button — always visible; highlighted (blue) when usable
+            // OCR button — always visible
             let ocrReady = contextIsFromOCR && contextText != nil && !ignoreClipboard
             Button {
                 if let text = contextText { engine.showText(text) }
@@ -435,7 +471,6 @@ struct OverlayView: View {
                     .font(.caption2)
             }
             .buttonStyle(.bordered)
-            .tint(ocrReady ? .accentColor : .secondary)
             .controlSize(.small)
             .disabled(!ocrReady)
             .help(ocrReady
@@ -477,10 +512,10 @@ struct OverlayView: View {
                         Button {
                             editingAction = action
                         } label: {
-                            Image(systemName: "pencil").font(.caption2).foregroundStyle(.tertiary)
+                            Image(systemName: "gearshape").font(.caption2).foregroundStyle(.tertiary)
                         }
                         .buttonStyle(.plain)
-                        .help("Edit action \(action.name)")
+                        .help("Upravit akci \(action.name)")
                         .disabled(engine.isLoading)
                     }
                 }

@@ -40,19 +40,18 @@ struct SettingsView: View {
                 HStack {
                     Text("Náhled clipboardu:")
                     Picker("", selection: $config.clipboardPreviewChars) {
-                        Text("100 znaků").tag(100)
-                        Text("300 znaků").tag(300)
-                        Text("500 znaků").tag(500)
-                        Text("1 000 znaků").tag(1000)
+                        Text("100").tag(100)
+                        Text("300").tag(300)
+                        Text("500").tag(500)
+                        Text("1000").tag(1000)
                         Text("Vše").tag(0)
                     }
-                    .labelsHidden().frame(width: 130).pickerStyle(.menu)
+                    .labelsHidden().frame(width: 80).pickerStyle(.menu)
                     .onChange(of: config.clipboardPreviewChars) { _, val in
                         ConfigStore.shared.update { $0.clipboardPreviewChars = val }
                     }
+                    Text("znaků (oko = vše)").font(.caption).foregroundStyle(.secondary)
                 }
-                Text("Maximální počet zobrazených znaků z clipboardu (kliknutím na oko v náhledu).")
-                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Globální zkratka") {
@@ -190,6 +189,9 @@ struct SettingsView: View {
                     config.actions.move(fromOffsets: from, toOffset: to)
                     ConfigStore.shared.update { $0.actions = config.actions }
                 }
+            }
+            .onChange(of: config.actions) { _, actions in
+                ConfigStore.shared.update { $0.actions = actions }
             }
             Divider()
             HStack {
