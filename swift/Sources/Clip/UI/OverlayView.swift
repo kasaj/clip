@@ -328,7 +328,7 @@ struct OverlayView: View {
                     Text("Clipboard").font(.caption2).foregroundStyle(.secondary)
                     Spacer()
                     Button {
-                        withAnimation(.easeInOut(duration: 0.15)) { showFullContext.toggle() }
+                        showFullContext.toggle()
                     } label: {
                         Image(systemName: showFullContext ? "eye.slash" : "eye")
                             .font(.caption2).foregroundStyle(.secondary)
@@ -336,16 +336,28 @@ struct OverlayView: View {
                     .buttonStyle(.plain)
                     .help(showFullContext ? "Collapse" : "Expand")
                 }
-                ScrollView {
-                    Text(showFullContext ? text : maskedPreview(text))
-                        .textSelection(.enabled)
+                if showFullContext {
+                    // Expanded — scrollable text box like result area
+                    ScrollView {
+                        Text(text)
+                            .textSelection(.enabled)
+                            .font(.caption)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(6)
+                    }
+                    .frame(maxHeight: 160)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                } else {
+                    // Compact — plain text, no ScrollView
+                    Text(maskedPreview(text))
                         .font(.caption)
+                        .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(6)
+                        .background(Color(nsColor: .textBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
-                .frame(maxHeight: showFullContext ? 160 : 42)
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
             }
             .padding(8)
             .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
