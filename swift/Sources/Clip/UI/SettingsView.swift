@@ -403,7 +403,7 @@ struct ProviderRow: View {
                             ? "https://api.anthropic.com"
                             : provider.kind == .openai
                                 ? "https://api.openai.com/v1"
-                                : "https://RESOURCE.services.ai.azure.com/api/projects/PROJECT",
+                                : "https://RESOURCE.openai.azure.com/openai/v1",
                             text: $urlField)
                             .onChange(of: urlField) {
                                 provider.baseURL = urlField.isEmpty ? nil : urlField
@@ -412,9 +412,9 @@ struct ProviderRow: View {
                     }
 
                     // Model / Deployment name
-                    providerField(provider.kind == .custom ? "Model / Deployment" : "Model") {
+                    providerField(provider.kind == .custom ? "Deployment" : "Model") {
                         TextField(provider.kind == .custom
-                            ? "gpt-5.4-mini-1 (Azure deployment name)"
+                            ? "deployment-name  (z Azure portálu)"
                             : provider.kind == .openai ? "gpt-4o" : "claude-sonnet-4-20250514",
                             text: $modelField)
                             .onChange(of: modelField) {
@@ -423,10 +423,10 @@ struct ProviderRow: View {
                             }
                     }
 
-                    // API Version — custom only (needed for Azure)
+                    // API Version — custom only (needed for legacy Azure deployment URL style)
                     if provider.kind == .custom {
                         providerField("API verze") {
-                            TextField("2024-02-01  (prázdné = auto)", text: $apiVersionField)
+                            TextField("2024-02-01  (jen pro deployment URL styl)", text: $apiVersionField)
                                 .onChange(of: apiVersionField) {
                                     provider.apiVersion = apiVersionField.isEmpty ? nil : apiVersionField
                                     onChange()
