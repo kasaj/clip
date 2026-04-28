@@ -24,13 +24,21 @@ final class OverlayWindowController: NSObject {
         // ① Capture which app is currently frontmost (before Clip activates)
         let targetPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
-        // ② Simulate ⌘C → sends to source app while it still has focus
-        simulateCopy(toPID: targetPID)
+        // ② Try Accessibility API first — reads selected text without a keyboard event.
+        //    Only works when Accessibility permission is granted, but is instant & reliable.
+        if let selectedText = ContextResolver.captureSelectedText(), !selectedText.isEmpty {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(selectedText, forType: .string)
+        } else {
+            // ③ Fallback: simulate ⌘C targeted at the source app PID.
+            //    If nothing is selected the clipboard stays unchanged — that's correct.
+            simulateCopy(toPID: targetPID)
+        }
 
         Task { @MainActor in
-            // ③ Give the source app ~150 ms to process the copy event
+            // ④ Give the source app ~150 ms to process the copy event
             try? await Task.sleep(nanoseconds: 150_000_000)
-            // ④ Now activate Clip so buttons, keyboard focus, etc. all work
+            // ⑤ Now activate Clip so buttons, keyboard focus, etc. all work
             NSApp.activate(ignoringOtherApps: true)
             state.triggerRefresh()
             self.panel?.makeKeyAndOrderFront(nil)
@@ -76,6 +84,12 @@ final class OverlayWindowController: NSObject {
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.appearance = nil   // follow system light/dark mode
+
+        // Hide the native traffic-light buttons — close/minimise/zoom
+        // are meaningless for a floating tool panel; we use our own ✕ button.
+        panel.standardWindowButton(.closeButton)?.isHidden = true
+        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        panel.standardWindowButton(.zoomButton)?.isHidden = true
 
         let view = OverlayView(state: state, onClose: { [weak self] in self?.hideOverlay() })
         panel.contentView = NSHostingView(rootView: view)

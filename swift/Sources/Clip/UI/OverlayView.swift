@@ -184,11 +184,14 @@ struct OverlayView: View {
                 Image(systemName: "gearshape").foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            // Always-visible close button
+            // Always-visible close button — red so it's easy to spot
             Button(action: close) {
-                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.red)
+                    .font(.system(size: 15))
             }
             .buttonStyle(.plain)
+            .help("Close (Esc)")
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
     }
