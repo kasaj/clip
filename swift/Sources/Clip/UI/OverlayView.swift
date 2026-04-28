@@ -209,7 +209,7 @@ struct OverlayView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16).padding(.vertical, 6)
+            .padding(.horizontal, 16).padding(.vertical, 3)
             Divider()
             SettingsView()
         }
@@ -282,7 +282,7 @@ struct OverlayView: View {
             .buttonStyle(.plain)
             .help("Close (Esc)")
         }
-        .padding(.horizontal, 16).padding(.vertical, 6)
+        .padding(.horizontal, 16).padding(.vertical, 3)
     }
 
     // MARK: - History panel
