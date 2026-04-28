@@ -371,18 +371,16 @@ struct OverlayView: View {
                 .help("Also send the source image to the model alongside the OCR text")
             }
 
-            // Load URL — always visible so user can enable it for any clipboard text
-            if !ignoreClipboard {
-                Toggle(isOn: $loadURL) {
-                    Label("Load URL", systemImage: "globe")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
-                .toggleStyle(.checkbox)
-                .disabled(loadURLAuto)   // auto-checked for pure-URL clipboard, user can't uncheck
-                .help(loadURLAuto
-                      ? "Clipboard is a URL — page will be fetched automatically"
-                      : "Fetch content of URL(s) found in clipboard and append to context")
+            // Load URL — always visible; auto-checked when clipboard is a pure URL
+            Toggle(isOn: $loadURL) {
+                Label("Load URL", systemImage: "globe")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
+            .toggleStyle(.checkbox)
+            .disabled(loadURLAuto)
+            .help(loadURLAuto
+                  ? "Clipboard is a URL — page will be fetched automatically"
+                  : "Fetch content of URL(s) found in clipboard and append to context")
 
             Toggle(isOn: $ignoreClipboard) {
                 Label("Ignore clipboard", systemImage: "doc.on.clipboard.fill")

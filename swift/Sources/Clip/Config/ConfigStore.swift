@@ -58,15 +58,10 @@ final class ConfigStore: @unchecked Sendable {
             try? data.write(to: folder.appendingPathComponent("agents.json"), options: .atomic)
         }
 
-        // providers.json — only write when there are providers to avoid overwriting with empty
+        // providers.json — new {"llm_providers":[...]} format; only write when non-empty
         if !config.providers.isEmpty {
-            let exports = config.providers.map { provider in
-                ProviderExport(
-                    from: provider,
-                    apiKey: try? KeychainStore.load(forProviderID: provider.id)
-                )
-            }
-            if let data = try? encoder.encode(exports) {
+            let file = ProvidersFile(llmProviders: config.providers)
+            if let data = try? encoder.encode(file) {
                 try? data.write(to: folder.appendingPathComponent("providers.json"), options: .atomic)
             }
         }
@@ -89,16 +84,13 @@ final class ConfigStore: @unchecked Sendable {
             config.actions = actions
         }
 
-        // providers.json — [ProviderExport] array; only override when non-empty
-        if let data = try? Data(contentsOf: folder.appendingPathComponent("providers.json")),
-           let exports = try? JSONDecoder().decode([ProviderExport].self, from: data),
-           !exports.isEmpty {
-            config.providers = exports.map(\.asProvider)
-            // Push API keys into Keychain
-            for export in exports {
-                if let key = export.apiKey, !key.isEmpty {
-                    try? KeychainStore.save(apiKey: key, forProviderID: export.id)
-                }
+        // providers.json — try new {"llm_providers":[...]} format first, fallback to old array
+        if let data = try? Data(contentsOf: folder.appendingPathComponent("providers.json")) {
+            let decoder = JSONDecoder()
+            if let file = try? decoder.decode(ProvidersFile.self, from: data), !file.llmProviders.isEmpty {
+                config.providers = file.llmProviders
+            } else if let providers = try? decoder.decode([Provider].self, from: data), !providers.isEmpty {
+                config.providers = providers
             }
         }
     }

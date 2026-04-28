@@ -15,23 +15,26 @@ struct ModelPreset: Identifiable, Codable, Equatable {
 // MARK: - ProviderKind
 
 enum ProviderKind: String, Codable, CaseIterable {
-    case anthropic          // Anthropic Messages API — direct or Azure AI Foundry
-    case openai             // OpenAI Chat Completions API — direct or Azure OpenAI
-    case custom             // Any OpenAI-compatible endpoint
+    case anthropic                    // Anthropic Messages API — direct or Azure AI Foundry
+    case openai                       // OpenAI Chat Completions API — direct
+    case azureOpenAI = "azure_openai" // Azure OpenAI — builds deployment URL from endpoint.*
+    case custom                       // Any OpenAI-compatible endpoint
 
     var displayName: String {
         switch self {
-        case .anthropic: "Anthropic"
-        case .openai:    "OpenAI"
-        case .custom:    "Vlastní (OpenAI-compatible)"
+        case .anthropic:   "Anthropic"
+        case .openai:      "OpenAI"
+        case .azureOpenAI: "Azure OpenAI"
+        case .custom:      "Vlastní (OpenAI-compatible)"
         }
     }
 
     var defaultBaseURL: String {
         switch self {
-        case .anthropic: "https://api.anthropic.com"
-        case .openai:    "https://api.openai.com/v1"
-        case .custom:    ""
+        case .anthropic:   "https://api.anthropic.com"
+        case .openai:      "https://api.openai.com/v1"
+        case .azureOpenAI: ""
+        case .custom:      ""
         }
     }
 
@@ -49,47 +52,130 @@ enum ProviderKind: String, Codable, CaseIterable {
                 .init(id: "gpt-4o-mini", displayName: "gpt-4o-mini"),
                 .init(id: "o4-mini",     displayName: "o4-mini"),
                 .init(id: "o3",          displayName: "o3"),
-                .init(id: "o3-mini",     displayName: "o3-mini"),
                 .init(id: "o1",          displayName: "o1"),
-                .init(id: "o1-mini",     displayName: "o1-mini")
             ]
-        case .custom:
+        case .azureOpenAI, .custom:
             []
         }
     }
 }
 
+// MARK: - Provider sub-structs (for nested providers.json format)
+
+struct ProviderAuth: Codable, Equatable, Hashable {
+    var apiKey: String?
+    var authType: String?   // "api_key" | "managed_identity"
+    var clientId: String?
+    enum CodingKeys: String, CodingKey {
+        case apiKey = "api_key"; case authType = "auth_type"; case clientId = "client_id"
+    }
+}
+
+struct ProviderEndpoint: Codable, Equatable, Hashable {
+    var baseURL: String?          // Full base URL (or root for Azure)
+    var apiVersion: String?       // e.g. "2024-02-01"
+    var resourceName: String?     // Azure resource name (informational)
+    var deploymentName: String?   // Azure deployment name → used to build chat URL
+    enum CodingKeys: String, CodingKey {
+        case baseURL = "base_url"; case apiVersion = "api_version"
+        case resourceName = "resource_name"; case deploymentName = "deployment_name"
+    }
+}
+
+struct ProviderOptions: Codable, Equatable, Hashable {
+    var model: String?
+    var maxTokens: Int?
+    var temperature: Double?
+    var timeoutSeconds: Int?
+    var organizationId: String?
+    enum CodingKeys: String, CodingKey {
+        case model; case maxTokens = "max_tokens"; case temperature
+        case timeoutSeconds = "timeout_seconds"; case organizationId = "organization_id"
+    }
+}
+
 // MARK: - Provider
 
-/// A user-managed provider record. API keys are stored separately in Keychain.
+/// A user-managed provider record.
+/// API key can live in auth.api_key (providers.json) or Keychain (entered via Settings).
 struct Provider: Identifiable, Codable, Equatable, Hashable {
     var id: UUID
     var name: String
     var kind: ProviderKind
-    var baseURL: String         // Editable; auto-filled from kind.defaultBaseURL
-    var apiVersion: String?     // For Azure endpoints that need ?api-version=...
-    var defaultModel: String    // Fallback model used when action doesn't override it
+    var enabled: Bool
+    var isDefault: Bool
+    var auth: ProviderAuth?
+    var endpoint: ProviderEndpoint?
+    var options: ProviderOptions?
 
     init(id: UUID = UUID(), name: String, kind: ProviderKind,
-         baseURL: String? = nil, apiVersion: String? = nil, defaultModel: String = "") {
-        self.id           = id
-        self.name         = name
-        self.kind         = kind
-        self.baseURL      = baseURL ?? kind.defaultBaseURL
-        self.apiVersion   = apiVersion
-        self.defaultModel = defaultModel
+         enabled: Bool = true, isDefault: Bool = false,
+         auth: ProviderAuth? = nil, endpoint: ProviderEndpoint? = nil,
+         options: ProviderOptions? = nil) {
+        self.id        = id;    self.name      = name;     self.kind      = kind
+        self.enabled   = enabled; self.isDefault = isDefault
+        self.auth      = auth;  self.endpoint  = endpoint; self.options   = options
     }
 
-    // Custom decoder so files saved before defaultModel was added still load cleanly.
+    // Backward-compat decoder: handles both new nested format and old flat format.
     init(from decoder: Decoder) throws {
-        let c    = try decoder.container(keyedBy: CodingKeys.self)
-        id           = try c.decode(UUID.self,         forKey: .id)
-        name         = try c.decode(String.self,       forKey: .name)
-        kind         = try c.decode(ProviderKind.self, forKey: .kind)
-        baseURL      = try c.decode(String.self,       forKey: .baseURL)
-        apiVersion   = try c.decodeIfPresent(String.self, forKey: .apiVersion)
-        defaultModel = try c.decodeIfPresent(String.self, forKey: .defaultModel) ?? ""
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id        = try c.decode(UUID.self, forKey: .id)
+        name      = try c.decode(String.self, forKey: .name)
+        enabled   = try c.decodeIfPresent(Bool.self, forKey: .enabled)   ?? true
+        isDefault = try c.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
+        auth      = try c.decodeIfPresent(ProviderAuth.self,     forKey: .auth)
+        endpoint  = try c.decodeIfPresent(ProviderEndpoint.self, forKey: .endpoint)
+        options   = try c.decodeIfPresent(ProviderOptions.self,  forKey: .options)
+        // Kind: new JSON uses "provider" key, old JSON uses "kind"
+        if let k = try c.decodeIfPresent(ProviderKind.self, forKey: .kind) {
+            kind = k
+        } else if let k = try c.decodeIfPresent(ProviderKind.self, forKey: .legacyKind) {
+            kind = k
+        } else { kind = .custom }
+        // Legacy flat fields → migrate into nested structs on load
+        if endpoint == nil {
+            let oldURL = try c.decodeIfPresent(String.self, forKey: .legacyBaseURL)
+            let oldVer = try c.decodeIfPresent(String.self, forKey: .legacyApiVersion)
+            if oldURL != nil || oldVer != nil {
+                endpoint = ProviderEndpoint(
+                    baseURL: (oldURL?.isEmpty == false) ? oldURL : nil,
+                    apiVersion: oldVer)
+            }
+        }
+        if options == nil {
+            if let m = try c.decodeIfPresent(String.self, forKey: .legacyDefaultModel), !m.isEmpty {
+                options = ProviderOptions(model: m)
+            }
+        }
     }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id,        forKey: .id)
+        try c.encode(name,      forKey: .name)
+        try c.encode(kind,      forKey: .kind)      // writes "provider" key
+        try c.encode(enabled,   forKey: .enabled)
+        try c.encode(isDefault, forKey: .isDefault) // writes "default" key
+        try c.encodeIfPresent(auth,     forKey: .auth)
+        try c.encodeIfPresent(endpoint, forKey: .endpoint)
+        try c.encodeIfPresent(options,  forKey: .options)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, enabled, auth, endpoint, options
+        case kind = "provider"              // new format key
+        case isDefault = "default"
+        case legacyKind = "kind"            // old format fallback
+        case legacyBaseURL = "baseURL"
+        case legacyApiVersion = "apiVersion"
+        case legacyDefaultModel = "defaultModel"
+    }
+
+    // Computed convenience
+    var effectiveBaseURL: String    { endpoint?.baseURL ?? kind.defaultBaseURL }
+    var effectiveApiVersion: String? { endpoint?.apiVersion }
+    var effectiveModel: String      { options?.model ?? "" }
 
     func effectiveModels(using presets: [String: [ModelPreset]]) -> [ModelPreset] {
         let stored = presets[id.uuidString] ?? []
@@ -102,46 +188,19 @@ struct Provider: Identifiable, Codable, Equatable, Hashable {
     static let openaiID       = UUID(uuidString: "A0000000-0000-0000-0000-000000000003")!
     static let customID       = UUID(uuidString: "A0000000-0000-0000-0000-000000000004")!
 
-    /// Maps legacy ProviderType rawValues → well-known UUIDs for backward compatibility.
     static let legacyMap: [String: UUID] = [
-        "azure_anthropic": claudeAzureID,
-        "anthropic":       claudeDirectID,
-        "azure_openai":    openaiID,
-        "azure_openai_2":  openaiID,
-        "openai":          openaiID,
-        "custom_openai":   customID,
+        "azure_anthropic": claudeAzureID, "anthropic": claudeDirectID,
+        "azure_openai": openaiID, "azure_openai_2": openaiID,
+        "openai": openaiID, "custom_openai": customID,
     ]
-
-    static var defaults: [Provider] { [
-        Provider(id: claudeAzureID,  name: "Claude (Azure)",  kind: .anthropic, baseURL: "", apiVersion: "2024-10-21"),
-        Provider(id: claudeDirectID, name: "Claude (direct)", kind: .anthropic),
-        Provider(id: openaiID,       name: "OpenAI",          kind: .openai),
-        Provider(id: customID,       name: "Vlastní",         kind: .custom, baseURL: ""),
-    ]}
 }
 
-// MARK: - ProviderExport
-// Format of {configFolder}/providers.json (array). Includes optional API keys.
+// MARK: - ProvidersFile
+// Format of {configFolder}/providers.json: {"llm_providers": [...]}
 
-struct ProviderExport: Codable {
-    var id: UUID
-    var name: String
-    var kind: ProviderKind
-    var baseURL: String
-    var apiVersion: String?
-    var defaultModel: String?   // Optional so older JSON files decode cleanly
-    var apiKey: String?         // Only written to folder file
-
-    init(from provider: Provider, apiKey: String? = nil) {
-        id = provider.id; name = provider.name; kind = provider.kind
-        baseURL = provider.baseURL; apiVersion = provider.apiVersion
-        defaultModel = provider.defaultModel.isEmpty ? nil : provider.defaultModel
-        self.apiKey = apiKey
-    }
-    var asProvider: Provider {
-        Provider(id: id, name: name, kind: kind, baseURL: baseURL,
-                 apiVersion: apiVersion, defaultModel: defaultModel ?? "")
-    }
+struct ProvidersFile: Codable {
+    var llmProviders: [Provider]
+    enum CodingKeys: String, CodingKey { case llmProviders = "llm_providers" }
 }
 
 // MARK: - AppConfig

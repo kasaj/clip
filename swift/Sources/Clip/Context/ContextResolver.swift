@@ -27,9 +27,16 @@ enum ContextResolver {
         if var text = pasteboard.string(forType: .string), !text.isEmpty {
             // Browsers copy both plain text and HTML to the clipboard.
             // The plain-text rep contains only visible characters — hyperlinks are stripped.
-            // Read the HTML rep and append any href URLs that aren't already in the text,
-            // so the "Load URL" feature can pick them up.
-            if let html = pasteboard.string(forType: .html) {
+            // Read the HTML rep (via data(), which is more reliable than string()) and
+            // append any href URLs that aren't already visible in the plain text.
+            let htmlStr: String? = {
+                if let data = pasteboard.data(forType: .html) {
+                    return String(data: data, encoding: .utf8)
+                        ?? String(data: data, encoding: .isoLatin1)
+                }
+                return pasteboard.string(forType: .html)
+            }()
+            if let html = htmlStr {
                 let hrefURLs = WebFetcher.extractHrefURLs(from: html)
                 let newURLs  = hrefURLs.filter { !text.contains($0) }
                 if !newURLs.isEmpty {

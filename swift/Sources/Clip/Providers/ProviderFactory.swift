@@ -45,56 +45,85 @@ enum ProviderFactory {
 
     private static func makeProvider(provider: Provider, model: String,
                                      temperature: Double, maxTokens: Int) throws -> any LLMProvider {
-        guard let apiKey = try? KeychainStore.load(forProviderID: provider.id), !apiKey.isEmpty else {
-            throw LLMError.missingAPIKey(provider.name)
-        }
+        // API key: JSON auth.api_key takes priority, then Keychain
+        let apiKey: String
+        if let k = provider.auth?.apiKey, !k.isEmpty { apiKey = k }
+        else if let k = try? KeychainStore.load(forProviderID: provider.id), !k.isEmpty { apiKey = k }
+        else { throw LLMError.missingAPIKey(provider.name) }
+
+        // Effective model: action override > provider options > kind default
+        let providerModel = provider.options?.model ?? ""
+        let resolvedModel = model.isEmpty ? providerModel : model
 
         switch provider.kind {
+
         case .anthropic:
-            guard !provider.baseURL.isEmpty else {
-                throw LLMError.missingAPIKey("\(provider.name) — Base URL není nastavena")
+            let base = provider.effectiveBaseURL
+            guard !base.isEmpty else {
+                throw LLMError.missingAPIKey("\(provider.name) — endpoint.base_url není nastavena")
             }
-            let fallback = provider.defaultModel.isEmpty ? "claude-sonnet-4-6" : provider.defaultModel
             return AnthropicProvider(
-                model: model.isEmpty ? fallback : model,
-                apiKey: apiKey,
-                baseURL: provider.baseURL,
-                apiVersion: provider.apiVersion,
+                model: resolvedModel.isEmpty ? "claude-sonnet-4-6" : resolvedModel,
+                apiKey: apiKey, baseURL: base, apiVersion: provider.effectiveApiVersion,
                 temperature: temperature, maxTokens: maxTokens
             )
 
         case .openai, .custom:
-            guard !provider.baseURL.isEmpty, let parsedURL = URL(string: provider.baseURL) else {
-                throw LLMError.missingAPIKey("\(provider.name) — Base URL není nastavena")
+            let base = provider.effectiveBaseURL
+            guard !base.isEmpty, let parsedURL = URL(string: base) else {
+                throw LLMError.missingAPIKey("\(provider.name) — endpoint.base_url není nastavena")
             }
-            let urlLower = provider.baseURL.lowercased()
-            let isAzure = urlLower.contains(".azure.com") || urlLower.contains(".services.ai.azure.com")
+            let lower = base.lowercased()
+            let isAzure = lower.contains(".azure.com") || lower.contains(".services.ai.azure.com")
             let auth: OpenAIAuthStyle = isAzure ? .apiKey : .bearer
-            let fallback = provider.defaultModel.isEmpty ? "gpt-4o" : provider.defaultModel
-            let effectiveModel = model.isEmpty ? fallback : model
-
-            // Detect full endpoint URLs so Clip doesn't append /chat/completions wrongly:
-            //   …/responses        → OpenAI Responses API (Azure AI Foundry project endpoints)
-            //   …/chat/completions → standard Chat Completions used directly
-            //   anything else      → treat as base URL, append /chat/completions
-            if urlLower.hasSuffix("/responses") {
-                return ResponsesAPIProvider(
-                    model: effectiveModel, apiKey: apiKey,
-                    endpointURL: parsedURL, authStyle: auth,
-                    temperature: temperature, maxTokens: maxTokens
-                )
-            } else if urlLower.hasSuffix("/chat/completions") {
-                return OpenAIProvider(
-                    model: effectiveModel, apiKey: apiKey,
-                    chatURL: parsedURL, authStyle: auth,
-                    temperature: temperature, maxTokens: maxTokens
-                )
+            let finalModel = resolvedModel.isEmpty ? "gpt-4o" : resolvedModel
+            if lower.hasSuffix("/responses") {
+                return ResponsesAPIProvider(model: finalModel, apiKey: apiKey,
+                                            endpointURL: parsedURL, authStyle: auth,
+                                            temperature: temperature, maxTokens: maxTokens)
+            } else if lower.hasSuffix("/chat/completions") {
+                return OpenAIProvider(model: finalModel, apiKey: apiKey,
+                                      chatURL: parsedURL, authStyle: auth,
+                                      temperature: temperature, maxTokens: maxTokens)
             } else {
-                return OpenAIProvider(
-                    model: effectiveModel, apiKey: apiKey,
-                    baseURL: parsedURL, authStyle: auth,
-                    temperature: temperature, maxTokens: maxTokens
-                )
+                return OpenAIProvider(model: finalModel, apiKey: apiKey,
+                                      baseURL: parsedURL, authStyle: auth,
+                                      temperature: temperature, maxTokens: maxTokens)
+            }
+
+        case .azureOpenAI:
+            let base = provider.effectiveBaseURL
+            guard !base.isEmpty else {
+                throw LLMError.missingAPIKey("\(provider.name) — endpoint.base_url není nastavena")
+            }
+            let lower = base.lowercased()
+            // Deployment name is used as model identifier for Azure
+            let deployment = provider.endpoint?.deploymentName ?? ""
+            let finalModel = deployment.isEmpty ? (resolvedModel.isEmpty ? "gpt-4o" : resolvedModel) : deployment
+
+            // Build full chat URL if deployment_name given and base is not already a full path
+            let fullURLStr: String
+            if lower.hasSuffix("/responses") || lower.hasSuffix("/chat/completions") {
+                fullURLStr = base   // already a complete endpoint URL
+            } else if !deployment.isEmpty && !lower.contains("/deployments/") {
+                let b = base.hasSuffix("/") ? base : base + "/"
+                let ver = provider.endpoint?.apiVersion ?? "2024-02-01"
+                fullURLStr = "\(b)openai/deployments/\(deployment)/chat/completions?api-version=\(ver)"
+            } else {
+                fullURLStr = base
+            }
+
+            guard let parsedURL = URL(string: fullURLStr) else {
+                throw LLMError.missingAPIKey("\(provider.name) — neplatná Azure URL")
+            }
+            if lower.hasSuffix("/responses") {
+                return ResponsesAPIProvider(model: finalModel, apiKey: apiKey,
+                                            endpointURL: parsedURL, authStyle: .apiKey,
+                                            temperature: temperature, maxTokens: maxTokens)
+            } else {
+                return OpenAIProvider(model: finalModel, apiKey: apiKey,
+                                      chatURL: parsedURL, authStyle: .apiKey,
+                                      temperature: temperature, maxTokens: maxTokens)
             }
         }
     }

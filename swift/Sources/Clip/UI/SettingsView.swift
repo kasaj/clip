@@ -4,14 +4,9 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @State private var config = ConfigStore.shared.config
-    @State private var keySaveStatus: [UUID: Bool] = [:]
     @State private var launchAtLogin = false
     @State private var importedActions: [Action] = []
     @State private var showImportAlert = false
-    @State private var isFetching: UUID? = nil
-    @State private var fetchError: [UUID: String] = [:]
-    @State private var reviewModels: [FetchedModel] = []
-    @State private var reviewingProvider: Provider? = nil
 
     var body: some View {
         TabView {
@@ -22,15 +17,6 @@ struct SettingsView: View {
         .frame(minWidth: 600, idealWidth: 700, maxWidth: .infinity,
                minHeight: 480, idealHeight: 580, maxHeight: .infinity)
         .onAppear { launchAtLogin = SMAppService.mainApp.status == .enabled }
-        .sheet(item: $reviewingProvider) { provider in
-            ModelReviewSheet(provider: provider, models: $reviewModels) { saved in
-                let presets = saved.filter(\.isIncluded)
-                    .map { ModelPreset(id: $0.id, displayName: $0.displayName, isRecommended: $0.isRecommended) }
-                ConfigStore.shared.update { $0.modelPresets[provider.id.uuidString] = presets }
-                config = ConfigStore.shared.config
-                reviewingProvider = nil
-            } onCancel: { reviewingProvider = nil }
-        }
     }
 
     // MARK: - General Tab
@@ -246,15 +232,17 @@ struct SettingsView: View {
                 ForEach($config.providers) { $provider in
                     ProviderRow(
                         provider: $provider,
-                        keySaveStatus: $keySaveStatus,
-                        isFetching: $isFetching,
-                        fetchError: $fetchError,
-                        onFetchModels: { Task { await fetchModels(for: provider) } },
                         onDelete: {
                             config.providers.removeAll { $0.id == provider.id }
                             ConfigStore.shared.update { $0.providers = config.providers }
                         },
                         onChange: {
+                            // If this provider was just set as default, clear others
+                            if provider.isDefault {
+                                for i in config.providers.indices where config.providers[i].id != provider.id {
+                                    config.providers[i].isDefault = false
+                                }
+                            }
                             ConfigStore.shared.update { $0.providers = config.providers }
                             config = ConfigStore.shared.config
                         }
@@ -262,34 +250,32 @@ struct SettingsView: View {
                 }
             }
             Divider()
-            HStack {
+            HStack(spacing: 12) {
                 Button("+ Přidat provider") {
-                    config.providers.append(Provider(name: "Nový provider", kind: .anthropic))
+                    config.providers.append(Provider(name: "Nový provider", kind: .openai))
                     ConfigStore.shared.update { $0.providers = config.providers }
                 }
                 Spacer()
+                if let folderPath = config.configFolderPath, !folderPath.isEmpty {
+                    Button {
+                        let url = URL(fileURLWithPath: folderPath)
+                            .appendingPathComponent("providers.json")
+                        if FileManager.default.fileExists(atPath: url.path) {
+                            NSWorkspace.shared.open(url)
+                        } else {
+                            NSWorkspace.shared.activateFileViewerSelecting(
+                                [URL(fileURLWithPath: folderPath)])
+                        }
+                    } label: {
+                        Label("providers.json", systemImage: "doc.text")
+                    }
+                    .buttonStyle(.borderless).font(.caption)
+                }
                 Text("\(config.providers.count) providerů")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .padding(12)
         }
-        .sheet(item: $reviewingProvider) { provider in
-            ModelReviewSheet(provider: provider, models: $reviewModels) { saved in
-                let presets = saved.filter(\.isIncluded)
-                    .map { ModelPreset(id: $0.id, displayName: $0.displayName, isRecommended: $0.isRecommended) }
-                ConfigStore.shared.update { $0.modelPresets[provider.id.uuidString] = presets }
-                config = ConfigStore.shared.config; reviewingProvider = nil
-            } onCancel: { reviewingProvider = nil }
-        }
-    }
-
-    private func fetchModels(for provider: Provider) async {
-        isFetching = provider.id; fetchError[provider.id] = nil
-        do {
-            reviewModels = try await ModelFetcher.fetch(for: provider)
-            reviewingProvider = provider
-        } catch { fetchError[provider.id] = error.localizedDescription }
-        isFetching = nil
     }
 }
 
@@ -311,20 +297,21 @@ enum ProviderTestState {
 }
 
 // MARK: - Provider Row
+// UI: only name, type, enabled/default toggles, test, delete.
+// Everything else (model, API key, URL…) is in providers.json.
 
 struct ProviderRow: View {
     @Binding var provider: Provider
-    @Binding var keySaveStatus: [UUID: Bool]
-    @Binding var isFetching: UUID?
-    @Binding var fetchError: [UUID: String]
-    let onFetchModels: () -> Void
     let onDelete: () -> Void
     let onChange: () -> Void
 
     @State private var expanded = false
-    @State private var keyField = ""
     @State private var confirmDelete = false
     @State private var testState: ProviderTestState = .idle
+
+    private var hasKey: Bool {
+        (provider.auth?.apiKey?.isEmpty == false) || KeychainStore.hasKey(forProviderID: provider.id)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -336,21 +323,24 @@ struct ProviderRow: View {
                 }
                 .buttonStyle(.plain)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(provider.name).font(.callout).fontWeight(.medium)
+                VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(provider.kind.displayName).font(.caption2).foregroundStyle(.secondary)
-                        if !provider.baseURL.isEmpty {
-                            Text("·").foregroundStyle(.tertiary)
-                            Text(provider.baseURL).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                        Text(provider.name).font(.callout).fontWeight(.medium)
+                        if !provider.enabled {
+                            Text("vypnuto").font(.caption2).foregroundStyle(.secondary)
+                        }
+                        if provider.isDefault {
+                            Text("výchozí").font(.caption2).padding(.horizontal, 4).padding(.vertical, 1)
+                                .background(Color.accentColor.opacity(0.15))
+                                .clipShape(RoundedRectangle(cornerRadius: 3))
                         }
                     }
+                    Text(provider.kind.displayName).font(.caption2).foregroundStyle(.secondary)
                 }
                 Spacer()
-                // Key indicator
-                Image(systemName: KeychainStore.hasKey(forProviderID: provider.id) ? "lock.fill" : "lock.open")
+                Image(systemName: hasKey ? "lock.fill" : "lock.open")
                     .font(.caption2)
-                    .foregroundStyle(KeychainStore.hasKey(forProviderID: provider.id) ? .green : .secondary)
+                    .foregroundStyle(hasKey ? .green : .secondary)
 
                 Button { confirmDelete = true } label: {
                     Image(systemName: "trash").font(.caption2).foregroundStyle(.red.opacity(0.7))
@@ -362,67 +352,35 @@ struct ProviderRow: View {
             }
             .padding(.vertical, 8)
 
-            // Expanded editor
             if expanded {
                 VStack(alignment: .leading, spacing: 10) {
                     Divider()
 
                     HStack {
-                        Text("Název").font(.caption).foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
+                        Text("Název").font(.caption).foregroundStyle(.secondary).frame(width: 72, alignment: .trailing)
                         TextField("Název providera", text: $provider.name).onChange(of: provider.name) { onChange() }
                     }
 
                     HStack {
-                        Text("Typ").font(.caption).foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
+                        Text("Typ").font(.caption).foregroundStyle(.secondary).frame(width: 72, alignment: .trailing)
                         Picker("", selection: $provider.kind) {
                             ForEach(ProviderKind.allCases, id: \.self) { Text($0.displayName).tag($0) }
                         }
                         .labelsHidden().frame(width: 200)
-                        .onChange(of: provider.kind) { _, newKind in
-                            // Auto-fill URL when type changes and URL is empty or was default
-                            if provider.baseURL.isEmpty || ProviderKind.allCases.contains(where: { $0.defaultBaseURL == provider.baseURL }) {
-                                provider.baseURL = newKind.defaultBaseURL
-                            }
-                            onChange()
-                        }
+                        .onChange(of: provider.kind) { _, _ in onChange() }
                     }
 
-                    HStack {
-                        Text("Base URL").font(.caption).foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
-                        TextField(provider.kind.defaultBaseURL.isEmpty ? "https://..." : provider.kind.defaultBaseURL,
-                                  text: $provider.baseURL)
-                            .onChange(of: provider.baseURL) { onChange() }
-                    }
-
-                    HStack {
-                        Text("API Version").font(.caption).foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
-                        TextField("pro Azure (např. 2024-10-21)", text: Binding(
-                            get: { provider.apiVersion ?? "" },
-                            set: { provider.apiVersion = $0.isEmpty ? nil : $0; onChange() }
-                        ))
-                    }
-
-                    HStack {
-                        Text("Def. model").font(.caption).foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
-                        TextField("např. gpt-4o nebo claude-opus-4-5", text: $provider.defaultModel)
-                            .onChange(of: provider.defaultModel) { onChange() }
-                        Text("(fallback když akce nemá model)").font(.caption2).foregroundStyle(.tertiary)
-                    }
-
-                    HStack(alignment: .center) {
-                        Text("API Klíč").font(.caption).foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
-                        SecureField("API klíč", text: $keyField)
-                            .onSubmit { saveKey() }
-                        Button("Uložit") { saveKey() }.disabled(keyField.isEmpty)
-                        if let saved = keySaveStatus[provider.id] {
-                            Image(systemName: saved ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundStyle(saved ? .green : .red)
-                        }
+                    HStack(spacing: 16) {
+                        Text("").frame(width: 72)
+                        Toggle("Aktivní", isOn: $provider.enabled)
+                            .font(.caption).onChange(of: provider.enabled) { onChange() }
+                        Toggle("Výchozí", isOn: $provider.isDefault)
+                            .font(.caption).onChange(of: provider.isDefault) { onChange() }
                     }
 
                     // Test connectivity
                     HStack(alignment: .firstTextBaseline) {
-                        Text("").frame(width: 80)
+                        Text("").frame(width: 72)
                         Button {
                             Task { await runTest() }
                         } label: {
@@ -434,8 +392,7 @@ struct ProviderRow: View {
                         }
                         .disabled({ if case .testing = testState { true } else { false } }())
                         switch testState {
-                        case .idle: EmptyView()
-                        case .testing: EmptyView()
+                        case .idle, .testing: EmptyView()
                         case .success(let msg):
                             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                             Text(msg).font(.caption).foregroundStyle(.green).lineLimit(2)
@@ -445,38 +402,15 @@ struct ProviderRow: View {
                         }
                     }
 
-                    // Model fetch
-                    if provider.kind != .custom {
-                        HStack {
-                            Text("").frame(width: 80)
-                            Button {
-                                onFetchModels()
-                            } label: {
-                                if isFetching == provider.id {
-                                    HStack(spacing: 6) { ProgressView().scaleEffect(0.7); Text("Načítám…") }
-                                } else {
-                                    Label("Aktualizovat modely", systemImage: "arrow.clockwise")
-                                }
-                            }
-                            .disabled(isFetching != nil)
-                        }
-                        if let err = fetchError[provider.id] {
-                            Text(err).font(.caption).foregroundStyle(.red).padding(.leading, 88)
-                        }
+                    HStack {
+                        Text("").frame(width: 72)
+                        Text("Model, API klíč, URL a ostatní nastavte v providers.json")
+                            .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
                 .padding(.leading, 20).padding(.bottom, 8)
             }
         }
-        .onAppear { keyField = (try? KeychainStore.load(forProviderID: provider.id)) ?? "" }
-    }
-
-    private func saveKey() {
-        do {
-            try KeychainStore.save(apiKey: keyField, forProviderID: provider.id)
-            keySaveStatus[provider.id] = true
-            onChange()
-        } catch { keySaveStatus[provider.id] = false }
     }
 
     private func runTest() async {
@@ -487,47 +421,6 @@ struct ProviderRow: View {
         } catch {
             testState = .failure(error.localizedDescription)
         }
-    }
-}
-
-// MARK: - Model Review Sheet
-
-private struct ModelReviewSheet: View {
-    let provider: Provider
-    @Binding var models: [FetchedModel]
-    let onSave: ([FetchedModel]) -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack { Text("Modely – \(provider.name)").font(.headline); Spacer() }.padding()
-            Divider()
-            List($models) { $model in
-                HStack(spacing: 10) {
-                    Toggle("", isOn: $model.isIncluded).labelsHidden()
-                        .onChange(of: model.isIncluded) { _, included in if !included && model.isRecommended { model.isRecommended = false } }
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(model.displayName).strikethrough(!model.isIncluded, color: .secondary).foregroundStyle(model.isIncluded ? .primary : .secondary)
-                        if model.inUseByAction { Text("Používáno v akci").font(.caption2).foregroundStyle(.orange) }
-                    }
-                    Spacer()
-                    Button {
-                        let t = model.id; for i in models.indices { models[i].isRecommended = models[i].id == t }
-                    } label: {
-                        Image(systemName: model.isRecommended ? "star.fill" : "star")
-                            .foregroundStyle(model.isRecommended ? Color.yellow : Color.secondary)
-                    }
-                    .buttonStyle(.plain).disabled(!model.isIncluded).help("Označit jako doporučený")
-                }
-            }
-            Divider()
-            HStack {
-                Button("Zrušit", role: .cancel) { onCancel() }; Spacer()
-                Text("\(models.filter(\.isIncluded).count) z \(models.count)").font(.caption).foregroundStyle(.secondary); Spacer()
-                Button("Uložit") { onSave(models) }.buttonStyle(.borderedProminent).disabled(models.filter(\.isIncluded).isEmpty)
-            }.padding()
-        }
-        .frame(width: 500, height: 440)
     }
 }
 

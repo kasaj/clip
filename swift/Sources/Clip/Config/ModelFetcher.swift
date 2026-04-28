@@ -22,9 +22,9 @@ enum ModelFetchError: LocalizedError {
 enum ModelFetcher {
     static func fetch(for provider: Provider) async throws -> [FetchedModel] {
         switch provider.kind {
-        case .openai:    return try await fetchOpenAI(provider: provider)
-        case .anthropic: return try await fetchAnthropic(provider: provider)
-        case .custom:    throw ModelFetchError.unsupportedProvider
+        case .openai:      return try await fetchOpenAI(provider: provider)
+        case .anthropic:   return try await fetchAnthropic(provider: provider)
+        case .azureOpenAI, .custom: throw ModelFetchError.unsupportedProvider
         }
     }
 
@@ -37,10 +37,12 @@ enum ModelFetcher {
     // MARK: - OpenAI
 
     private static func fetchOpenAI(provider: Provider) async throws -> [FetchedModel] {
-        guard let key = try? KeychainStore.load(forProviderID: provider.id), !key.isEmpty else {
-            throw ModelFetchError.missingAPIKey
-        }
-        let base = provider.baseURL.hasSuffix("/") ? String(provider.baseURL.dropLast()) : provider.baseURL
+        let key: String
+        if let k = provider.auth?.apiKey, !k.isEmpty { key = k }
+        else if let k = try? KeychainStore.load(forProviderID: provider.id), !k.isEmpty { key = k }
+        else { throw ModelFetchError.missingAPIKey }
+        let rawBase = provider.effectiveBaseURL
+        let base = rawBase.hasSuffix("/") ? String(rawBase.dropLast()) : rawBase
         guard let url = URL(string: "\(base)/models") else { throw ModelFetchError.invalidResponse }
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
@@ -68,13 +70,14 @@ enum ModelFetcher {
     // MARK: - Anthropic
 
     private static func fetchAnthropic(provider: Provider) async throws -> [FetchedModel] {
-        guard let key = try? KeychainStore.load(forProviderID: provider.id), !key.isEmpty else {
-            throw ModelFetchError.missingAPIKey
-        }
-        // Use direct api.anthropic.com for model listing even for Azure providers
-        let base = provider.baseURL.lowercased().contains(".azure.com")
-            ? "https://api.anthropic.com" : provider.baseURL
-        let trimmed = base.hasSuffix("/") ? String(base.dropLast()) : base
+        let key: String
+        if let k = provider.auth?.apiKey, !k.isEmpty { key = k }
+        else if let k = try? KeychainStore.load(forProviderID: provider.id), !k.isEmpty { key = k }
+        else { throw ModelFetchError.missingAPIKey }
+        // Use direct api.anthropic.com for model listing even for Azure-proxied providers
+        let rawBase = provider.effectiveBaseURL.lowercased().contains(".azure.com")
+            ? "https://api.anthropic.com" : provider.effectiveBaseURL
+        let trimmed = rawBase.hasSuffix("/") ? String(rawBase.dropLast()) : rawBase
         guard let url = URL(string: "\(trimmed)/v1/models") else { throw ModelFetchError.invalidResponse }
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.setValue(key, forHTTPHeaderField: "x-api-key")
