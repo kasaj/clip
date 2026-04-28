@@ -230,7 +230,7 @@ struct OverlayView: View {
                 }
                 .buttonStyle(.plain).foregroundStyle(.secondary)
                 Spacer()
-                Text(editingAction?.name ?? "Akce").font(.headline)
+                Text(editingAction?.name ?? "Action").font(.headline)
                 Spacer()
                 Button(action: close) {
                     Image(systemName: "xmark.circle.fill")
@@ -353,44 +353,55 @@ struct OverlayView: View {
             .padding(8)
             .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
             .clipShape(RoundedRectangle(cornerRadius: 6))
-        } else {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
-                    .foregroundStyle(.secondary).font(.caption).padding(.top, 1)
-                Group {
-                    if ignoreClipboard {
-                        Text("Clipboard ignored — prompt only").foregroundStyle(.secondary)
-                    } else if isResolvingContext {
-                        Text(contextIsFromOCR ? "Reading image…" : "Reading clipboard…").foregroundStyle(.secondary)
-                    } else if let text = contextText {
-                        if showFullContext {
-                            ScrollView {
-                                Text(text)
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .frame(maxHeight: 160)
-                        } else {
-                            Text(maskedPreview(text)).lineLimit(2)
-                        }
-                    } else {
-                        Text("Clipboard empty — type a prompt below").foregroundStyle(.secondary)
-                    }
-                }
-                .font(.caption).frame(maxWidth: .infinity, alignment: .leading)
-
-                if contextText != nil && !isResolvingContext && !ignoreClipboard {
-                    Button { withAnimation(.easeInOut(duration: 0.15)) { showFullContext.toggle() } } label: {
+        } else if ignoreClipboard {
+            statusRow("Clipboard ignored — prompt only", icon: "doc.on.clipboard")
+        } else if isResolvingContext {
+            statusRow(contextIsFromOCR ? "Reading image…" : "Reading clipboard…", icon: "ellipsis")
+        } else if let text = contextText {
+            // Result-style clipboard preview
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    Text("Clipboard").font(.caption2).foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { showFullContext.toggle() }
+                    } label: {
                         Image(systemName: showFullContext ? "eye.slash" : "eye")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption2).foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain).help(showFullContext ? "Hide content" : "Show content")
+                    .buttonStyle(.plain)
+                    .help(showFullContext ? "Collapse" : "Expand")
                 }
+                ScrollView {
+                    Text(showFullContext ? text : maskedPreview(text))
+                        .textSelection(.enabled)
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(6)
+                }
+                .frame(maxHeight: showFullContext ? 160 : 42)
+                .background(Color(nsColor: .textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
             }
             .padding(8)
-            .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
             .clipShape(RoundedRectangle(cornerRadius: 6))
+        } else {
+            statusRow("Clipboard empty — type a prompt below", icon: "doc.on.clipboard")
         }
+    }
+
+    private func statusRow(_ message: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon).font(.caption).foregroundStyle(.secondary)
+            Text(message).font(.caption).foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(8)
+        .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private func maskedPreview(_ text: String) -> String {
@@ -431,7 +442,7 @@ struct OverlayView: View {
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 .toggleStyle(.checkbox)
-                .help("Uložit vstup a výstup do session logu")
+                .help("Save input and output to session log")
             }
 
             Toggle(isOn: $loadURL) {
@@ -442,8 +453,8 @@ struct OverlayView: View {
             .toggleStyle(.checkbox)
             .disabled(loadURLAuto)
             .help(loadURLAuto
-                  ? "Clipboard obsahuje URL — stránka bude načtena automaticky"
-                  : "Načíst obsah URL z clipboardu a přidat ke kontextu")
+                  ? "Clipboard contains URL — page will be loaded automatically"
+                  : "Load URL content from clipboard and add to context")
 
             Toggle(isOn: $ignoreClipboard) {
                 Label("Ignore", systemImage: "doc.on.clipboard.fill")
@@ -451,7 +462,7 @@ struct OverlayView: View {
                     .foregroundStyle(Color.secondary)
             }
             .toggleStyle(.checkbox)
-            .help("Ignorovat clipboard; spustit agenta pouze s promptem")
+            .help("Ignore clipboard; run with prompt only")
             .onChange(of: ignoreClipboard) { _, _ in showFullContext = false }
 
             Toggle(isOn: $readOutput) {
@@ -459,7 +470,7 @@ struct OverlayView: View {
                     .font(.caption2).foregroundStyle(.secondary)
             }
             .toggleStyle(.checkbox)
-            .help("Přečíst výsledek nahlas (TTS)")
+            .help("Read result aloud (TTS)")
 
             // "+ image" — always visible; active when OCR image is available
             let imageAvailable = contextIsFromOCR && ocrSourceImageData != nil && !ignoreClipboard
@@ -470,8 +481,8 @@ struct OverlayView: View {
             .toggleStyle(.checkbox)
             .disabled(!imageAvailable)
             .help(imageAvailable
-                  ? "Přiložit také zdrojový obrázek vedle OCR textu"
-                  : "Clipboard neobsahuje obrázek s textem")
+                  ? "Attach source image alongside OCR text"
+                  : "Clipboard does not contain an image with text")
 
             // OCR button — always visible
             let ocrReady = contextIsFromOCR && contextText != nil && !ignoreClipboard
@@ -485,8 +496,8 @@ struct OverlayView: View {
             .controlSize(.small)
             .disabled(!ocrReady)
             .help(ocrReady
-                  ? "Zobrazit rozpoznaný text z obrázku"
-                  : "Clipboard neobsahuje obrázek s rozpoznatelným textem")
+                  ? "Show recognised text from image"
+                  : "Clipboard does not contain an image with recognisable text")
 
             if speech.isSpeaking {
                 Button("Stop") { speech.stop() }
@@ -526,7 +537,7 @@ struct OverlayView: View {
                             Image(systemName: "gearshape").font(.caption2).foregroundStyle(.tertiary)
                         }
                         .buttonStyle(.plain)
-                        .help("Upravit akci \(action.name)")
+                        .help("Edit action \(action.name)")
                         .disabled(engine.isLoading)
                     }
                 }
@@ -590,7 +601,7 @@ struct OverlayView: View {
                 }
             } else {
                 // Placeholder — always show output area so window stays the same size
-                Text(engine.isLoading ? "" : "Výsledek se zobrazí zde…")
+                Text(engine.isLoading ? "" : "Result will appear here…")
                     .font(.caption)
                     .foregroundStyle(Color(.placeholderTextColor))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

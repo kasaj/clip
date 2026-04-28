@@ -7,13 +7,13 @@ struct SettingsView: View {
     @State private var launchAtLogin = false
     @State private var importedActions: [Action] = []
     @State private var showImportAlert = false
-    @State private var clipboardPreviewText = ""   // "0" = vše, jinak číslo
+    @State private var clipboardPreviewText = ""
 
     var body: some View {
         TabView {
-            generalTab.tabItem { Label("Obecné", systemImage: "gearshape") }
-            actionsTab.tabItem { Label("Akce", systemImage: "list.bullet") }
-            providersTab.tabItem { Label("Providery", systemImage: "key") }
+            generalTab.tabItem { Label("General", systemImage: "gearshape") }
+            actionsTab.tabItem { Label("Actions", systemImage: "list.bullet") }
+            providersTab.tabItem { Label("Providers", systemImage: "key") }
         }
         .frame(minWidth: 600, idealWidth: 700, maxWidth: .infinity,
                minHeight: 480, idealHeight: 580, maxHeight: .infinity)
@@ -25,56 +25,57 @@ struct SettingsView: View {
     private var generalTab: some View {
         Form {
             Section {
-                Toggle("Spustit při přihlášení", isOn: $launchAtLogin)
+                Toggle("Launch at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, enabled in
                         do { if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() } }
                         catch { launchAtLogin = !enabled }
                     }
-                Toggle("Po dokončení akce zkopírovat výsledek a zavřít panel", isOn: $config.autoCopyAndClose)
+                Toggle("Copy result and close panel after action completes", isOn: $config.autoCopyAndClose)
                     .onChange(of: config.autoCopyAndClose) { _, val in ConfigStore.shared.update { $0.autoCopyAndClose = val } }
-                Stepper("Historie výsledků: \(config.historyLimit == 0 ? "vypnuto" : "\(config.historyLimit)")",
+                Stepper("Result history: \(config.historyLimit == 0 ? "off" : "\(config.historyLimit)")",
                         value: $config.historyLimit, in: 0...10)
                     .onChange(of: config.historyLimit) { _, val in
                         ConfigStore.shared.update { $0.historyLimit = val }
                         HistoryStore.shared.trim(to: val)
                     }
-                HStack {
-                    Text("Náhled clipboardu:")
-                    TextField("300", text: $clipboardPreviewText)
-                        .frame(width: 60)
-                        .multilineTextAlignment(.trailing)
-                        .onChange(of: clipboardPreviewText) { _, val in
-                            let n = Int(val) ?? (val.trimmingCharacters(in: .whitespaces).isEmpty ? 300 : -1)
-                            guard n >= 0 else { return }
-                            config.clipboardPreviewChars = n
-                            ConfigStore.shared.update { $0.clipboardPreviewChars = n }
-                        }
-                    Text("znaků (0 = vše, oko = vždy vše)").font(.caption).foregroundStyle(.secondary)
+                LabeledContent("Clipboard preview") {
+                    HStack(spacing: 6) {
+                        TextField("", text: $clipboardPreviewText)
+                            .frame(width: 60)
+                            .multilineTextAlignment(.trailing)
+                            .onChange(of: clipboardPreviewText) { _, val in
+                                let n = Int(val) ?? (val.trimmingCharacters(in: .whitespaces).isEmpty ? 300 : -1)
+                                guard n >= 0 else { return }
+                                config.clipboardPreviewChars = n
+                                ConfigStore.shared.update { $0.clipboardPreviewChars = n }
+                            }
+                        Text("chars (0 = all, eye = always all)").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
 
-            Section("Globální zkratka") {
+            Section("Global shortcut") {
                 HStack {
-                    Text("Zkratka"); Spacer()
+                    Text("Shortcut"); Spacer()
                     HotkeyRecorderView(keyCode: $config.hotkeyKeyCode, modifiers: $config.hotkeyModifiers)
                         .frame(width: 150, height: 26)
                         .onChange(of: config.hotkeyKeyCode)  { saveHotkey() }
                         .onChange(of: config.hotkeyModifiers) { saveHotkey() }
                 }
-                Text("Klikni na pole a stiskni požadovanou kombinaci kláves.")
+                Text("Click the field and press the desired key combination.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Section("Složka konfigurace") {
+            Section("Config folder") {
                 HStack(spacing: 8) {
                     Image(systemName: "folder").foregroundStyle(.secondary)
-                    Text(config.configFolderPath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Nevybráno")
+                    Text(config.configFolderPath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Not selected")
                         .lineLimit(1).truncationMode(.middle)
                         .foregroundStyle(config.configFolderPath == nil ? .secondary : .primary)
                     Spacer()
-                    Button("Vybrat…") { pickConfigFolder() }
+                    Button("Choose…") { pickConfigFolder() }
                     if config.configFolderPath != nil {
-                        Button("Zrušit") {
+                        Button("Clear") {
                             config.configFolderPath = nil
                             ConfigStore.shared.update { $0.configFolderPath = nil }
                         }
@@ -83,24 +84,24 @@ struct SettingsView: View {
                 }
                 if let p = config.configFolderPath {
                     Text(p).font(.caption2).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
-                    Text("Agenti (agents.json) a providery (providers.json) se čtou z této složky a zapisují zpět. Slouží pro sync přes iDrive / OneDrive.")
+                    Text("Actions (agents.json) and providers (providers.json) are read from this folder and written back. Useful for sync via iDrive / OneDrive.")
                         .font(.caption).foregroundStyle(.secondary)
                 } else {
-                    Text("Vše se ukládá lokálně do ~/Library/Application Support/Clip/.")
+                    Text("Everything is stored locally in ~/Library/Application Support/Clip/.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
 
-            Section("Složka záznamů (sessions)") {
+            Section("Sessions folder") {
                 HStack(spacing: 8) {
                     Image(systemName: "calendar.badge.clock").foregroundStyle(.secondary)
-                    Text(config.sessionFolderPath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Nevybráno")
+                    Text(config.sessionFolderPath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Not selected")
                         .lineLimit(1).truncationMode(.middle)
                         .foregroundStyle(config.sessionFolderPath == nil ? .secondary : .primary)
                     Spacer()
-                    Button("Vybrat…") { pickSessionFolder() }
+                    Button("Choose…") { pickSessionFolder() }
                     if config.sessionFolderPath != nil {
-                        Button("Zrušit") {
+                        Button("Clear") {
                             config.sessionFolderPath = nil
                             ConfigStore.shared.update { $0.sessionFolderPath = nil }
                         }
@@ -109,24 +110,23 @@ struct SettingsView: View {
                 }
                 if let p = config.sessionFolderPath {
                     Text(p).font(.caption2).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
-                    Text("Záznamy se ukládají jako Markdown soubory (YYYY-MM-DD.md) do této složky. Ideální pro Obsidian nebo iCloud.")
+                    Text("Sessions are saved as Markdown files (YYYY-MM-DD.md) in this folder. Ideal for Obsidian or iCloud.")
                         .font(.caption).foregroundStyle(.secondary)
                 } else if let p = config.configFolderPath, !p.isEmpty {
-                    Text("Záznamy se ukládají do: \(p)/sessions/ (dle složky konfigurace).")
+                    Text("Sessions are saved to: \(p)/sessions/ (from config folder).")
                         .font(.caption).foregroundStyle(.secondary)
                 } else {
-                    Text("Záznamy jsou vypnuty — vyber složku konfigurace nebo vlastní složku záznamů.")
+                    Text("Sessions disabled — choose a config folder or a custom sessions folder.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Toggle("Vždy zaznamenávat operace automaticky", isOn: $config.recordSessions)
+                Toggle("Always record sessions automatically", isOn: $config.recordSessions)
                     .onChange(of: config.recordSessions) { _, val in ConfigStore.shared.update { $0.recordSessions = val } }
                     .disabled(config.sessionFolderPath == nil && (config.configFolderPath ?? "").isEmpty)
             }
 
-            Section("O aplikaci") {
+            Section("About") {
                 HStack(spacing: 8) {
-                    Text("Clip")
-                        .font(.headline)
+                    Text("Clip").font(.headline)
                     Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")")
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -145,7 +145,7 @@ struct SettingsView: View {
 
     private func pickConfigFolder() {
         let panel = NSOpenPanel()
-        panel.title = "Vybrat složku konfigurace"
+        panel.title = "Select config folder"
         panel.canChooseFiles = false; panel.canChooseDirectories = true; panel.canCreateDirectories = true
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
@@ -161,7 +161,7 @@ struct SettingsView: View {
 
     private func pickSessionFolder() {
         let panel = NSOpenPanel()
-        panel.title = "Vybrat složku záznamů"
+        panel.title = "Select sessions folder"
         panel.canChooseFiles = false; panel.canChooseDirectories = true; panel.canCreateDirectories = true
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
@@ -195,45 +195,45 @@ struct SettingsView: View {
             }
             Divider()
             HStack {
-                Button("Přidat akci") {
+                Button("Add action") {
                     let firstProviderID = config.providers.first?.id ?? Provider.claudeAzureID
-                    config.actions.append(Action(name: "Nová akce", systemPrompt: "",
+                    config.actions.append(Action(name: "New action", systemPrompt: "",
                                                  provider: firstProviderID, model: "", enabled: true))
                     ConfigStore.shared.update { $0.actions = config.actions }
                 }
                 Spacer()
-                Button("Importovat…") { importActions() }
-                Button("Exportovat…") { exportActions() }.disabled(config.actions.isEmpty)
+                Button("Import…") { importActions() }
+                Button("Export…") { exportActions() }.disabled(config.actions.isEmpty)
             }
             .padding(12)
         }
-        .alert("Importovat akce", isPresented: $showImportAlert) {
-            Button("Přidat k existujícím") {
+        .alert("Import actions", isPresented: $showImportAlert) {
+            Button("Add to existing") {
                 let fresh = importedActions.map { var a = $0; a.id = UUID(); return a }
                 config.actions.append(contentsOf: fresh)
                 ConfigStore.shared.update { $0.actions = config.actions }
             }
-            Button("Nahradit vše", role: .destructive) {
+            Button("Replace all", role: .destructive) {
                 let fresh = importedActions.map { var a = $0; a.id = UUID(); return a }
                 config.actions = fresh
                 ConfigStore.shared.update { $0.actions = config.actions }
             }
-            Button("Zrušit", role: .cancel) {}
+            Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Nalezeno \(importedActions.count) \(importedActions.count == 1 ? "akce" : "akcí"). Přidat k existujícím, nebo nahradit vše?")
+            Text("Found \(importedActions.count) action(s). Add to existing or replace all?")
         }
     }
 
     private func exportActions() {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(config.actions) else { return }
-        let panel = NSSavePanel(); panel.title = "Exportovat akce"; panel.nameFieldStringValue = "agents.json"
+        let panel = NSSavePanel(); panel.title = "Export actions"; panel.nameFieldStringValue = "agents.json"
         panel.allowedContentTypes = [.json]
         panel.begin { response in guard response == .OK, let url = panel.url else { return }; try? data.write(to: url, options: .atomic) }
     }
 
     private func importActions() {
-        let panel = NSOpenPanel(); panel.title = "Importovat akce"; panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = false
+        let panel = NSOpenPanel(); panel.title = "Import actions"; panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = false
         panel.begin { response in
             guard response == .OK, let url = panel.url,
                   let data = try? Data(contentsOf: url),
@@ -255,7 +255,6 @@ struct SettingsView: View {
                             ConfigStore.shared.update { $0.providers = config.providers }
                         },
                         onChange: {
-                            // If this provider was just set as default, clear others
                             if provider.isDefault {
                                 for i in config.providers.indices where config.providers[i].id != provider.id {
                                     config.providers[i].isDefault = false
@@ -269,7 +268,7 @@ struct SettingsView: View {
             }
             Divider()
             HStack(spacing: 12) {
-                Button("+ Přidat provider") {
+                Button("+ Add provider") {
                     config.providers.append(Provider.template(kind: .openai))
                     ConfigStore.shared.update { $0.providers = config.providers }
                 }
@@ -289,7 +288,7 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.borderless).font(.caption)
                 }
-                Text("\(config.providers.count) providerů")
+                Text("\(config.providers.count) provider(s)")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .padding(12)
@@ -324,7 +323,6 @@ struct ProviderRow: View {
     @State private var expanded = false
     @State private var confirmDelete = false
     @State private var testState: ProviderTestState = .idle
-    // Editable fields (local state synced with provider binding)
     @State private var idField = ""
     @State private var keyField = ""
     @State private var keySaved: Bool? = nil
@@ -340,7 +338,6 @@ struct ProviderRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Compact header row
             HStack(spacing: 8) {
                 Button { withAnimation { expanded.toggle() } } label: {
                     Image(systemName: expanded ? "chevron.down" : "chevron.right")
@@ -352,10 +349,10 @@ struct ProviderRow: View {
                     HStack(spacing: 6) {
                         Text(provider.name).font(.callout).fontWeight(.medium)
                         if !provider.enabled {
-                            Text("vypnuto").font(.caption2).foregroundStyle(.secondary)
+                            Text("disabled").font(.caption2).foregroundStyle(.secondary)
                         }
                         if provider.isDefault {
-                            Text("výchozí").font(.caption2).padding(.horizontal, 4).padding(.vertical, 1)
+                            Text("default").font(.caption2).padding(.horizontal, 4).padding(.vertical, 1)
                                 .background(Color.accentColor.opacity(0.15))
                                 .clipShape(RoundedRectangle(cornerRadius: 3))
                         }
@@ -371,8 +368,8 @@ struct ProviderRow: View {
                     Image(systemName: "trash").font(.caption2).foregroundStyle(.red.opacity(0.7))
                 }
                 .buttonStyle(.plain)
-                .confirmationDialog("Smazat provider \"\(provider.name)\"?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                    Button("Smazat", role: .destructive) { onDelete() }
+                .confirmationDialog("Delete provider \"\(provider.name)\"?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                    Button("Delete", role: .destructive) { onDelete() }
                 }
             }
             .padding(.vertical, 8)
@@ -381,13 +378,11 @@ struct ProviderRow: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Divider()
 
-                    // ID (custom string key used in actions)
                     providerField("ID") {
                         TextField("provider-id", text: $idField)
                             .onChange(of: idField) {
                                 let newID = idField.trimmingCharacters(in: .whitespacesAndNewlines)
                                 guard !newID.isEmpty, newID != provider.id else { return }
-                                // Update all actions that reference the old ID
                                 ConfigStore.shared.update { cfg in
                                     for i in cfg.actions.indices where cfg.actions[i].provider == provider.id {
                                         cfg.actions[i].provider = newID
@@ -396,47 +391,41 @@ struct ProviderRow: View {
                                 provider.id = newID
                                 onChange()
                             }
-                        Text("(používá se jako odkaz v akcích)")
+                        Text("(used as reference in actions)")
                             .font(.caption2).foregroundStyle(.tertiary)
                     }
 
-                    // Name
-                    providerField("Název") {
-                        TextField("Název providera", text: $provider.name)
+                    providerField("Name") {
+                        TextField("Provider name", text: $provider.name)
                             .onChange(of: provider.name) { onChange() }
                     }
 
-                    // Type
-                    providerField("Typ") {
+                    providerField("Type") {
                         Picker("", selection: $provider.kind) {
                             ForEach(ProviderKind.allCases, id: \.self) { Text($0.displayName).tag($0) }
                         }
                         .labelsHidden().frame(width: 200)
                         .onChange(of: provider.kind) { _, newKind in
                             let t = Provider.template(kind: newKind, name: provider.name)
-                            // Reset connection fields to template defaults (keep id & name)
                             provider.baseURL        = t.baseURL
                             provider.model          = t.model
                             provider.deploymentName = t.deploymentName
                             provider.apiVersion     = t.apiVersion
                             provider.defaults       = t.defaults
-                            // Keep apiKey — user might want the same key for multiple providers
                             syncFields()
                             onChange()
                         }
                     }
 
-                    // API Key — all provider types
-                    providerField("API Klíč") {
-                        SecureField("API klíč", text: $keyField).onSubmit { saveKey() }
-                        Button("Uložit") { saveKey() }.disabled(keyField.isEmpty)
+                    providerField("API Key") {
+                        SecureField("API key", text: $keyField).onSubmit { saveKey() }
+                        Button("Save") { saveKey() }.disabled(keyField.isEmpty)
                         if let saved = keySaved {
                             Image(systemName: saved ? "checkmark.circle.fill" : "xmark.circle.fill")
                                 .foregroundStyle(saved ? .green : .red)
                         }
                     }
 
-                    // Base URL
                     providerField("URL") {
                         TextField(provider.kind == .anthropic
                             ? "https://api.anthropic.com"
@@ -450,10 +439,9 @@ struct ProviderRow: View {
                             }
                     }
 
-                    // Organization ID — OpenAI only
                     if provider.kind == .openai {
                         providerField("Org ID") {
-                            TextField("org-... (nepovinné)", text: $orgIdField)
+                            TextField("org-... (optional)", text: $orgIdField)
                                 .onChange(of: orgIdField) {
                                     provider.organizationId = orgIdField.isEmpty ? nil : orgIdField
                                     onChange()
@@ -461,10 +449,9 @@ struct ProviderRow: View {
                         }
                     }
 
-                    // Model / Deployment name
                     providerField(provider.kind == .custom ? "Deployment" : "Model") {
                         TextField(provider.kind == .custom
-                            ? "deployment-name  (z Azure portálu)"
+                            ? "deployment-name  (from Azure portal)"
                             : provider.kind == .openai ? "gpt-4o" : "claude-sonnet-4-20250514",
                             text: $modelField)
                             .onChange(of: modelField) {
@@ -473,10 +460,9 @@ struct ProviderRow: View {
                             }
                     }
 
-                    // API Version — custom only (needed for legacy Azure deployment URL style)
                     if provider.kind == .custom {
-                        providerField("API verze") {
-                            TextField("2024-02-01  (jen pro deployment URL styl)", text: $apiVersionField)
+                        providerField("API version") {
+                            TextField("2024-02-01  (legacy deployment URL style only)", text: $apiVersionField)
                                 .onChange(of: apiVersionField) {
                                     provider.apiVersion = apiVersionField.isEmpty ? nil : apiVersionField
                                     onChange()
@@ -484,25 +470,23 @@ struct ProviderRow: View {
                         }
                     }
 
-                    // Active / Default toggles
                     HStack(spacing: 16) {
                         Text("").frame(width: 72)
-                        Toggle("Aktivní", isOn: $provider.enabled)
+                        Toggle("Active", isOn: $provider.enabled)
                             .font(.caption).onChange(of: provider.enabled) { onChange() }
-                        Toggle("Výchozí", isOn: $provider.isDefault)
+                        Toggle("Default", isOn: $provider.isDefault)
                             .font(.caption).onChange(of: provider.isDefault) { onChange() }
                     }
 
-                    // Test connectivity
                     HStack(alignment: .firstTextBaseline) {
                         Text("").frame(width: 72)
                         Button {
                             Task { await runTest() }
                         } label: {
                             if case .testing = testState {
-                                HStack(spacing: 6) { ProgressView().scaleEffect(0.7); Text("Testuji…") }
+                                HStack(spacing: 6) { ProgressView().scaleEffect(0.7); Text("Testing…") }
                             } else {
-                                Label("Otestovat připojení", systemImage: "antenna.radiowaves.left.and.right")
+                                Label("Test connection", systemImage: "antenna.radiowaves.left.and.right")
                             }
                         }
                         .disabled({ if case .testing = testState { true } else { false } }())
@@ -522,8 +506,6 @@ struct ProviderRow: View {
         }
         .onAppear { syncFields() }
     }
-
-    // MARK: - Helpers
 
     @ViewBuilder
     private func providerField<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
@@ -546,7 +528,6 @@ struct ProviderRow: View {
     private func saveKey() {
         guard !keyField.isEmpty else { return }
         do {
-            // Save to both JSON field (providers.json) and Keychain
             provider.apiKey = keyField
             try KeychainStore.save(apiKey: keyField, forProviderID: provider.id)
             keySaved = true; onChange()
@@ -584,15 +565,15 @@ struct ActionRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Toggle("", isOn: $action.enabled).labelsHidden()
-                TextField("Název akce", text: $action.name).font(.headline)
+                TextField("Action name", text: $action.name).font(.headline)
                 Spacer()
                 if let del = onDelete {
                     Button { confirmDelete = true } label: {
                         Image(systemName: "trash").foregroundStyle(.red.opacity(0.8))
                     }
                     .buttonStyle(.plain)
-                    .confirmationDialog("Smazat akci \"\(action.name)\"?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                        Button("Smazat", role: .destructive) { del() }
+                    .confirmationDialog("Delete action \"\(action.name)\"?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                        Button("Delete", role: .destructive) { del() }
                     }
                 }
             }
@@ -633,7 +614,7 @@ struct ActionRow: View {
             }
 
             if models.isEmpty {
-                TextField("název modelu", text: $customModelText).frame(minWidth: 200)
+                TextField("model name", text: $customModelText).frame(minWidth: 200)
                     .onChange(of: customModelText) { if !customModelText.isEmpty { action.model = customModelText } }
             } else {
                 Picker("Model", selection: $pickerModel) {
@@ -641,12 +622,12 @@ struct ActionRow: View {
                         Text(preset.isRecommended ? "\(preset.displayName) ★" : preset.displayName).tag(preset.id)
                     }
                     Divider()
-                    Text("Vlastní model…").tag(customSentinel)
+                    Text("Custom model…").tag(customSentinel)
                 }
                 .labelsHidden().frame(minWidth: 240)
                 .onChange(of: pickerModel) { if pickerModel != customSentinel { action.model = pickerModel; customModelText = "" } }
                 if isCustom {
-                    TextField("název modelu", text: $customModelText).frame(minWidth: 180)
+                    TextField("model name", text: $customModelText).frame(minWidth: 180)
                         .onChange(of: customModelText) { if !customModelText.isEmpty { action.model = customModelText } }
                 }
             }
@@ -656,19 +637,19 @@ struct ActionRow: View {
     private var parametersRow: some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Teplota: \(action.temperature, specifier: "%.1f")").font(.caption).foregroundStyle(.secondary)
+                Text("Temperature: \(action.temperature, specifier: "%.1f")").font(.caption).foregroundStyle(.secondary)
                 Slider(value: $action.temperature, in: 0.0...2.0, step: 0.1).frame(width: 140)
             }
             Spacer()
             VStack(alignment: .leading, spacing: 2) {
-                Text("Zkopírovat a zavřít").font(.caption).foregroundStyle(.secondary)
+                Text("Copy & close").font(.caption).foregroundStyle(.secondary)
                 Picker("", selection: $action.autoCopyClose) {
                     ForEach(AutoCopyClose.allCases, id: \.self) { Text($0.displayName).tag($0) }
                 }
                 .labelsHidden().frame(width: 120).pickerStyle(.menu)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("Max. tokenů").font(.caption).foregroundStyle(.secondary)
+                Text("Max tokens").font(.caption).foregroundStyle(.secondary)
                 HStack {
                     TextField("", value: $action.maxTokens, format: .number).frame(width: 72).multilineTextAlignment(.trailing)
                     Stepper("", value: $action.maxTokens, in: 256...32000, step: 256).labelsHidden()
@@ -677,4 +658,3 @@ struct ActionRow: View {
         }
     }
 }
-
