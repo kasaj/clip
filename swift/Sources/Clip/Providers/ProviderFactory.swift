@@ -113,20 +113,22 @@ enum ProviderFactory {
             let auth: OpenAIAuthStyle = isAzure ? .apiKey : .bearer
 
                 // --- URL strategy ---
-            // 1. Already a full endpoint → use directly (chatURL)
-            // 2. Azure + bare hostname or project path (no /v1) → build deployment URL (chatURL)
-            // 3. OpenAI-compatible base (ends /v1 or /openai/v1) → append /chat/completions (baseURL)
-            // 4. Anything else → treat as baseURL, OpenAIProvider appends /chat/completions
+            // Parse path separately so query strings (e.g. ?api-version=...) don't break detection
+            let urlPath = (URLComponents(string: base)?.path ?? base).lowercased()
 
-            let isFullEndpoint = lower.hasSuffix("/chat/completions") || lower.hasSuffix("/responses")
-            // "OpenAI-compatible" base: already has the /v1 suffix → just append /chat/completions
-            let isOpenAICompatibleBase = lower.hasSuffix("/v1") || lower.contains("/openai/v1")
-            // Traditional Azure deployment style: bare hostname or project URL, no /v1 and no /deployments/
-            let isAzureDeploymentBase = isAzure && !isFullEndpoint && !isOpenAICompatibleBase
-                                        && !lower.contains("/deployments/")
+            let isResponsesEndpoint    = urlPath.hasSuffix("/responses")
+            let isChatEndpoint         = urlPath.hasSuffix("/chat/completions")
+            let isFullEndpoint         = isResponsesEndpoint || isChatEndpoint
+            // OpenAI-compatible base: has /v1 suffix → just append /chat/completions
+            let isOpenAICompatibleBase = lower.hasSuffix("/v1") || urlPath.hasSuffix("/openai/v1")
+                                         || urlPath.contains("/openai/v1")
+            // Traditional Azure: bare hostname or project URL, no /v1 and no /deployments/
+            let isAzureDeploymentBase  = isAzure && !isFullEndpoint && !isOpenAICompatibleBase
+                                         && !urlPath.contains("/deployments/")
 
             let chatURLStr: String
             if isFullEndpoint {
+                // Already a full endpoint URL — use directly
                 chatURLStr = base
             } else if isAzureDeploymentBase {
                 // Construct: {base}/openai/deployments/{model}/chat/completions?api-version={ver}
@@ -142,13 +144,13 @@ enum ProviderFactory {
                 throw LLMError.missingAPIKey("\(provider.name) — neplatná URL: \(chatURLStr)")
             }
 
-            let finalURLLower = chatURLStr.lowercased()
-            if finalURLLower.hasSuffix("/responses") {
+            // Route to correct provider implementation
+            let finalPath = (URLComponents(string: chatURLStr)?.path ?? chatURLStr).lowercased()
+            if finalPath.hasSuffix("/responses") {
                 return ResponsesAPIProvider(model: resolvedModel, apiKey: apiKey,
                                             endpointURL: parsedURL, authStyle: auth,
                                             temperature: temperature, maxTokens: maxTokens)
-            } else if finalURLLower.hasSuffix("/chat/completions") {
-                // Full URL already built → use chatURL directly
+            } else if finalPath.hasSuffix("/chat/completions") {
                 return OpenAIProvider(model: resolvedModel, apiKey: apiKey,
                                       chatURL: parsedURL, authStyle: auth,
                                       temperature: temperature, maxTokens: maxTokens)
