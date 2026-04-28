@@ -46,6 +46,27 @@ enum WebFetcher {
         return embeddedURLRegex.firstMatch(in: text, range: range) != nil
     }
 
+    // MARK: - HTML href extraction
+
+    /// Regex that captures the URL inside href="…" or href='…' attributes.
+    private static let hrefRegex = try! NSRegularExpression(
+        pattern: #"href=["'](https?://[^"']+)["']"#,
+        options: .caseInsensitive
+    )
+
+    /// Extracts all http/https URLs from href attributes in an HTML string.
+    /// Used to discover hyperlinks that browsers put in the clipboard HTML representation
+    /// but omit from the plain-text representation.
+    static func extractHrefURLs(from html: String) -> [String] {
+        let range = NSRange(html.startIndex..., in: html)
+        var seen = Set<String>()
+        return hrefRegex.matches(in: html, range: range).compactMap { match in
+            guard let r = Range(match.range(at: 1), in: html) else { return nil }
+            let url = String(html[r]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return seen.insert(url).inserted ? url : nil  // deduplicate
+        }
+    }
+
     // MARK: - Fetch
 
     /// Fetches a web page and returns its plain-text content (≤ maxChars).

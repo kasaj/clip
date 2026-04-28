@@ -24,7 +24,18 @@ enum ContextResolver {
 
     static func resolve() async -> ContextResult {
         let pasteboard = NSPasteboard.general
-        if let text = pasteboard.string(forType: .string), !text.isEmpty {
+        if var text = pasteboard.string(forType: .string), !text.isEmpty {
+            // Browsers copy both plain text and HTML to the clipboard.
+            // The plain-text rep contains only visible characters — hyperlinks are stripped.
+            // Read the HTML rep and append any href URLs that aren't already in the text,
+            // so the "Load URL" feature can pick them up.
+            if let html = pasteboard.string(forType: .html) {
+                let hrefURLs = WebFetcher.extractHrefURLs(from: html)
+                let newURLs  = hrefURLs.filter { !text.contains($0) }
+                if !newURLs.isEmpty {
+                    text += "\n" + newURLs.joined(separator: "\n")
+                }
+            }
             return .text(text, isOCR: false)
         }
         if let image = NSImage(pasteboard: pasteboard) {

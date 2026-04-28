@@ -371,9 +371,8 @@ struct OverlayView: View {
                 .help("Also send the source image to the model alongside the OCR text")
             }
 
-            // Load URL — visible only when clipboard contains at least one URL
-            if !ignoreClipboard, let text = contextText,
-               WebFetcher.containsAnyURL(text) {
+            // Load URL — always visible so user can enable it for any clipboard text
+            if !ignoreClipboard {
                 Toggle(isOn: $loadURL) {
                     Label("Load URL", systemImage: "globe")
                         .font(.caption2).foregroundStyle(.secondary)
