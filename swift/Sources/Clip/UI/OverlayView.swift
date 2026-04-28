@@ -32,9 +32,6 @@ struct OverlayView: View {
     @State private var showHistory = false
     @State private var shownHistoryResult: String?
 
-    // Inline settings
-    @State private var showingSettings = false
-
     // Inline action editing
     @State private var editingAction: Action?
 
@@ -59,9 +56,7 @@ struct OverlayView: View {
 
     var body: some View {
         Group {
-            if showingSettings {
-                settingsWrapper
-            } else if editingAction != nil {
+            if editingAction != nil {
                 actionEditPanel
             } else {
                 overlayContent
@@ -154,7 +149,6 @@ struct OverlayView: View {
         recordThisSession = ConfigStore.shared.config.recordSessions
         showHistory = false
         shownHistoryResult = nil
-        showingSettings = false
         engine.reset()
     }
 
@@ -180,38 +174,6 @@ struct OverlayView: View {
                 .padding(16)
                 .frame(minHeight: 200, maxHeight: .infinity)
                 .layoutPriority(1)   // output gets space first
-        }
-    }
-
-    // MARK: - Inline settings wrapper
-
-    private var settingsWrapper: some View {
-        VStack(spacing: 0) {
-            // Settings header with Back + X
-            HStack {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.15)) { showingSettings = false }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left").font(.subheadline)
-                        Text("Back").font(.subheadline)
-                    }
-                }
-                .buttonStyle(.plain).foregroundStyle(.secondary)
-                Spacer()
-                Text("Settings").font(.headline)
-                Spacer()
-                // Always-visible close button — red like in main overlay
-                Button(action: close) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.red)
-                        .font(.system(size: 15))
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 3)
-            Divider()
-            SettingsView()
         }
     }
 
@@ -268,7 +230,7 @@ struct OverlayView: View {
                 .buttonStyle(.plain)
             }
             Button {
-                withAnimation(.easeInOut(duration: 0.15)) { showingSettings = true }
+                (NSApp.delegate as? AppDelegate)?.openSettings()
             } label: {
                 Image(systemName: "gearshape").foregroundStyle(.secondary)
             }
@@ -582,7 +544,7 @@ struct OverlayView: View {
                 HStack(spacing: 8) {
                     if let action = lastAction { Button("Retry") { runAction(action) } }
                     if isMissingKeyError {
-                        Button("Settings") { withAnimation { showingSettings = true } }
+                        Button("Settings") { (NSApp.delegate as? AppDelegate)?.openSettings() }
                     }
                 }
                 Spacer()

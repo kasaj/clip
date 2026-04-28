@@ -71,8 +71,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func openSettings() {
-        overlayWindowController?.hideOverlay()
+    @objc func openSettings() {
+        // Don't hide overlay — settings opens as separate window alongside it
         // Always create a fresh SettingsView so it reads current ConfigStore state.
         // If the window is already visible just bring it to front; otherwise rebuild it
         // so a stale @State snapshot is never shown.
