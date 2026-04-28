@@ -14,7 +14,6 @@ struct OverlayView: View {
     @State private var contextMimeType: String = "image/jpeg"
     @State private var isResolvingContext = false
     @State private var contextIsFromOCR = false
-    @State private var showFullContext = false
     @State private var ocrSourceImageData: Data?     // original image when OCR found text
     @State private var ocrSourceMimeType: String = "image/jpeg"
     @State private var sendOCRImage = false          // "Also send image" checkbox
@@ -28,8 +27,7 @@ struct OverlayView: View {
     @State private var recordThisSession = false
     @State private var readOutput = false
 
-    // History panel
-    @State private var showHistory = false
+    // History
     @State private var shownHistoryResult: String?
 
     // Inline action editing
@@ -131,6 +129,7 @@ struct OverlayView: View {
 
     private func close() {
         SpeechPlayer.shared.stop()
+        PopupWindowManager.closeAll()
         resetTransientState()
         onClose()
     }
@@ -147,7 +146,6 @@ struct OverlayView: View {
         sendOCRImage = false
         readOutput = false
         recordThisSession = ConfigStore.shared.config.recordSessions
-        showHistory = false
         shownHistoryResult = nil
         engine.reset()
     }
@@ -158,32 +156,15 @@ struct OverlayView: View {
         VStack(spacing: 0) {
             headerBar
             Divider()
-            // Input section — natural height, yields space to output
             VStack(alignment: .leading, spacing: 10) {
                 contextPreview
-                // Clipboard full content — outside @ViewBuilder so SwiftUI sees the toggle reliably
-                if showFullContext, let text = contextText, !ignoreClipboard {
-                    ScrollView {
-                        Text(text)
-                            .textSelection(.enabled)
-                            .font(.caption)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(6)
-                    }
-                    .frame(maxHeight: 160)
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
                 promptField
                 optionCheckboxes
-                // History panel — inline, above action buttons
-                if showHistory { historyPanel }
                 actionButtons
             }
             .padding(16)
             .layoutPriority(0)
             Divider()
-            // Output section — always visible
             resultArea
                 .padding(16)
                 .frame(minHeight: 200, maxHeight: .infinity)
@@ -247,53 +228,6 @@ struct OverlayView: View {
         .padding(.horizontal, 16).padding(.vertical, 3)
     }
 
-    // MARK: - History panel
-
-    private var historyPanel: some View {
-        Group {
-            if history.entries.isEmpty {
-                Text("No history").font(.caption).foregroundStyle(.secondary).padding(16)
-            } else {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(history.entries) { entry in
-                            HStack(alignment: .top) {
-                                Button {
-                                    shownHistoryResult = entry.result
-                                    showHistory = false
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        HStack {
-                                            Text(entry.actionName).font(.caption).fontWeight(.medium)
-                                            Spacer()
-                                            Text(entry.date, style: .time).font(.caption2).foregroundStyle(.tertiary)
-                                        }
-                                        Text(entry.inputSnippet).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                Spacer()
-                                if let url = entry.sessionFileURL {
-                                    Button { NSWorkspace.shared.open(url) } label: {
-                                        Image(systemName: "doc.text")
-                                            .font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help("Open session log (\(url.lastPathComponent))")
-                                }
-                            }
-                            .padding(.horizontal, 8).padding(.vertical, 6)
-                            Divider()
-                        }
-                    }
-                }
-                .frame(maxHeight: 140)
-                .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-        }
-    }
-
     // MARK: - Context preview
 
     @ViewBuilder
@@ -322,20 +256,19 @@ struct OverlayView: View {
         } else if isResolvingContext {
             statusRow(contextIsFromOCR ? "Reading image…" : "Reading clipboard…", icon: "ellipsis")
         } else if let text = contextText {
-            // Clipboard header row — ScrollView is rendered by overlayContent directly
             HStack(spacing: 6) {
                 Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
                     .font(.caption2).foregroundStyle(.secondary)
                 Text("Clipboard — \(text.count) chars").font(.caption2).foregroundStyle(.secondary)
                 Spacer()
                 Button {
-                    showFullContext.toggle()
+                    PopupWindowManager.showClipboard(text: text)
                 } label: {
-                    Image(systemName: showFullContext ? "eye.slash" : "eye")
+                    Image(systemName: "eye")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help(showFullContext ? "Hide clipboard" : "Show clipboard content")
+                .help("Show clipboard content")
             }
             .padding(8)
             .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
@@ -407,7 +340,7 @@ struct OverlayView: View {
             }
             .toggleStyle(.checkbox)
             .help("Ignore clipboard; run with prompt only")
-            .onChange(of: ignoreClipboard) { _, _ in showFullContext = false }
+            .onChange(of: ignoreClipboard) { _, _ in }
 
             Toggle(isOn: $readOutput) {
                 Label("Read", systemImage: "speaker.wave.2")
@@ -451,16 +384,20 @@ struct OverlayView: View {
 
             Spacer()
 
-            // History button — right-aligned, blue when has entries
+            // History button — same style as other labels, blue when has entries
             if ConfigStore.shared.config.historyLimit > 0 {
                 let hasHistory = !history.entries.isEmpty
-                Button { showHistory.toggle() } label: {
-                    Image(systemName: showHistory ? "clock.fill" : "clock")
+                Button {
+                    PopupWindowManager.showHistory { selected in
+                        shownHistoryResult = selected
+                    }
+                } label: {
+                    Label("History", systemImage: hasHistory ? "clock.fill" : "clock")
                         .font(.caption2)
-                        .foregroundStyle(showHistory ? Color.accentColor : hasHistory ? Color.accentColor : Color.secondary)
+                        .foregroundStyle(hasHistory ? Color.accentColor : Color.secondary)
                 }
                 .buttonStyle(.plain)
-                .help(showHistory ? "Hide history" : "Show history")
+                .help("Show history")
             }
         }
     }
@@ -599,8 +536,6 @@ struct OverlayView: View {
         contextText = nil
         didCopy = false
         shownHistoryResult = nil
-        showHistory = false
-        showFullContext = false
 
         isResolvingContext = true
         ocrSourceImageData = nil
@@ -701,6 +636,126 @@ struct OverlayView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         didCopy = true
+    }
+}
+
+// MARK: - Popup Window Manager
+
+@MainActor
+enum PopupWindowManager {
+    private static var clipboardWindow: NSWindow?
+    private static var historyWindow: NSWindow?
+
+    static func showClipboard(text: String) {
+        if let w = clipboardWindow, w.isVisible {
+            w.makeKeyAndOrderFront(nil); return
+        }
+        let view = ClipboardPreviewWindowView(text: text)
+        clipboardWindow = makePanel(rootView: view, title: "Clipboard", width: 540, height: 400)
+        clipboardWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    static func showHistory(onSelect: @escaping (String) -> Void) {
+        if let w = historyWindow, w.isVisible {
+            w.makeKeyAndOrderFront(nil); return
+        }
+        let view = HistoryWindowView(onSelect: { result in
+            onSelect(result)
+            historyWindow?.orderOut(nil)
+        })
+        historyWindow = makePanel(rootView: view, title: "History", width: 460, height: 340)
+        historyWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    static func closeAll() {
+        clipboardWindow?.orderOut(nil)
+        historyWindow?.orderOut(nil)
+    }
+
+    private static func makePanel<V: View>(rootView: V, title: String, width: CGFloat, height: CGFloat) -> NSWindow {
+        let w = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered, defer: false
+        )
+        w.title = title
+        w.titlebarAppearsTransparent = true
+        w.titleVisibility = .hidden
+        w.isMovableByWindowBackground = true
+        w.level = .floating
+        w.isRestorable = false
+        w.contentView = NSHostingView(rootView: rootView.ignoresSafeArea())
+        w.center()
+        return w
+    }
+}
+
+// MARK: - Clipboard Preview Window
+
+private struct ClipboardPreviewWindowView: View {
+    let text: String
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Label("Clipboard", systemImage: "doc.on.clipboard")
+                    .font(.headline)
+                Spacer()
+                Text("\(text.count) chars").font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            Divider()
+            ScrollView {
+                Text(text)
+                    .textSelection(.enabled)
+                    .font(.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+            }
+        }
+        .frame(minWidth: 400, minHeight: 200)
+    }
+}
+
+// MARK: - History Window
+
+private struct HistoryWindowView: View {
+    @ObservedObject private var history = HistoryStore.shared
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Label("History", systemImage: "clock")
+                    .font(.headline)
+                Spacer()
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            Divider()
+            if history.entries.isEmpty {
+                Spacer()
+                Text("No history yet").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+            } else {
+                List(history.entries) { entry in
+                    Button {
+                        onSelect(entry.result)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(entry.actionName).font(.callout).fontWeight(.medium)
+                                Spacer()
+                                Text(entry.date, style: .time).font(.caption2).foregroundStyle(.tertiary)
+                            }
+                            Text(entry.inputSnippet)
+                                .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(minWidth: 380, minHeight: 200)
     }
 }
 
