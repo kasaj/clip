@@ -419,10 +419,11 @@ struct OverlayView: View {
                 .help("Save input and output to session log")
             }
 
+            let hasURLs = !ignoreClipboard && (contextText.map { WebFetcher.containsAnyURL($0) } ?? false)
             Toggle(isOn: $loadURL) {
                 Label("URLFetch", systemImage: "globe")
                     .font(.caption2)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(hasURLs ? Color.accentColor : Color.secondary)
             }
             .toggleStyle(.checkbox)
             .disabled(loadURLAuto)
@@ -430,10 +431,11 @@ struct OverlayView: View {
                   ? "Clipboard contains URL — page will be loaded automatically"
                   : "Load URL content from clipboard and add to context")
 
+            let hasClipboard = (contextText != nil || contextImageData != nil) && !isResolvingContext && !ignoreClipboard
             Toggle(isOn: $ignoreClipboard) {
                 Label("Ignore", systemImage: "doc.on.clipboard.fill")
                     .font(.caption2)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(hasClipboard ? Color.accentColor : Color.secondary)
             }
             .toggleStyle(.checkbox)
             .help("Ignore clipboard; run with prompt only")
@@ -450,7 +452,7 @@ struct OverlayView: View {
             let imageAvailable = contextIsFromOCR && ocrSourceImageData != nil && !ignoreClipboard
             Toggle(isOn: $sendOCRImage) {
                 Label("+ image", systemImage: "photo")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2).foregroundStyle(imageAvailable ? Color.accentColor : Color.secondary)
             }
             .toggleStyle(.checkbox)
             .disabled(!imageAvailable)
@@ -465,6 +467,7 @@ struct OverlayView: View {
             } label: {
                 Label("OCR", systemImage: "doc.viewfinder")
                     .font(.caption2)
+                    .foregroundStyle(ocrReady ? Color.accentColor : Color.secondary)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
