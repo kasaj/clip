@@ -320,48 +320,41 @@ struct OverlayView: View {
         } else if isResolvingContext {
             statusRow(contextIsFromOCR ? "Reading image…" : "Reading clipboard…", icon: "ellipsis")
         } else if let text = contextText {
-            // Result-style clipboard preview
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    Text("Clipboard").font(.caption2).foregroundStyle(.secondary)
-                    Spacer()
-                    Button {
-                        showFullContext.toggle()
-                    } label: {
-                        Image(systemName: showFullContext ? "eye.slash" : "eye")
-                            .font(.caption2).foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(showFullContext ? "Collapse" : "Expand")
-                }
+            // Clipboard preview — hidden by default, eye shows full content
+            HStack(spacing: 6) {
+                Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
+                    .font(.caption2).foregroundStyle(.secondary)
                 if showFullContext {
-                    // Expanded — scrollable text box like result area
-                    ScrollView {
-                        Text(text)
-                            .textSelection(.enabled)
-                            .font(.caption)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(6)
-                    }
-                    .frame(maxHeight: 160)
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    Text("Clipboard").font(.caption2).foregroundStyle(.secondary)
                 } else {
-                    // Compact — plain text, no ScrollView
-                    Text(maskedPreview(text))
-                        .font(.caption)
-                        .lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(6)
-                        .background(Color(nsColor: .textBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                    Text("Clipboard — \(text.count) chars").font(.caption2).foregroundStyle(.secondary)
                 }
+                Spacer()
+                Button {
+                    showFullContext.toggle()
+                } label: {
+                    Image(systemName: showFullContext ? "eye.slash" : "eye")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(showFullContext ? "Hide clipboard" : "Show clipboard content")
             }
             .padding(8)
             .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
             .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            if showFullContext {
+                ScrollView {
+                    Text(text)
+                        .textSelection(.enabled)
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(6)
+                }
+                .frame(maxHeight: 160)
+                .background(Color(nsColor: .textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
         } else {
             statusRow("Clipboard empty — type a prompt below", icon: "doc.on.clipboard")
         }
@@ -376,16 +369,6 @@ struct OverlayView: View {
         .padding(8)
         .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
         .clipShape(RoundedRectangle(cornerRadius: 6))
-    }
-
-    private func maskedPreview(_ text: String) -> String {
-        if showFullContext {
-            return text   // eye = always full text, no limit
-        }
-        // Compact view: show first N chars per setting (default 300)
-        let limit = ConfigStore.shared.config.clipboardPreviewChars
-        if limit == 0 { return text }
-        return text.count > limit ? String(text.prefix(limit)) + "…" : text
     }
 
     // MARK: - Prompt field

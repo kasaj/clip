@@ -7,7 +7,6 @@ struct SettingsView: View {
     @State private var launchAtLogin = false
     @State private var importedActions: [Action] = []
     @State private var showImportAlert = false
-    @State private var clipboardPreviewText = ""
 
     var body: some View {
         TabView {
@@ -38,20 +37,6 @@ struct SettingsView: View {
                         ConfigStore.shared.update { $0.historyLimit = val }
                         HistoryStore.shared.trim(to: val)
                     }
-                LabeledContent("Clipboard preview") {
-                    HStack(spacing: 6) {
-                        TextField("", text: $clipboardPreviewText)
-                            .frame(width: 60)
-                            .multilineTextAlignment(.trailing)
-                            .onChange(of: clipboardPreviewText) { _, val in
-                                let n = Int(val) ?? (val.trimmingCharacters(in: .whitespaces).isEmpty ? 300 : -1)
-                                guard n >= 0 else { return }
-                                config.clipboardPreviewChars = n
-                                ConfigStore.shared.update { $0.clipboardPreviewChars = n }
-                            }
-                        Text("chars (0 = all, eye = always all)").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
             }
 
             Section("Global shortcut") {
@@ -135,7 +120,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped).padding()
-        .onAppear { clipboardPreviewText = config.clipboardPreviewChars == 0 ? "0" : "\(config.clipboardPreviewChars)" }
     }
 
     private func saveHotkey() {
