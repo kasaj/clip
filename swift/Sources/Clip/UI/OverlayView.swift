@@ -650,6 +650,10 @@ enum PopupWindowManager {
     private static var clipboardWindow: NSWindow?
     private static var historyWindow: NSWindow?
 
+    /// Delegate that intercepts the red-X close button and hides the window
+    /// instead of closing it, preventing the app from quitting.
+    private static let hideOnCloseDelegate = HideOnCloseDelegate()
+
     static func showClipboard(text: String) {
         if let w = clipboardWindow, w.isVisible {
             w.makeKeyAndOrderFront(nil); return
@@ -685,9 +689,20 @@ enum PopupWindowManager {
         w.title = title          // shown next to traffic lights in standard title bar
         w.level = .floating
         w.isRestorable = false
+        w.delegate = hideOnCloseDelegate   // red X hides, not closes
         w.contentView = NSHostingView(rootView: rootView)
         w.center()
         return w
+    }
+}
+
+/// NSWindowDelegate that intercepts windowShouldClose so the red X button
+/// hides the popup window instead of destroying it (which would trigger
+/// app termination in an LSUIElement app).
+private class HideOnCloseDelegate: NSObject, NSWindowDelegate {
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        sender.orderOut(nil)
+        return false   // prevent actual close / deallocation
     }
 }
 

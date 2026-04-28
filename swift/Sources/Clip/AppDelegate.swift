@@ -23,6 +23,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        // Clip is an LSUIElement app — the menu-bar icon is the "window".
+        // Popup windows closing must never terminate the app.
+        return false
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         hotkeyManager?.unregister()
     }
