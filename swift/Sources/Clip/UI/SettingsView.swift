@@ -297,8 +297,6 @@ enum ProviderTestState {
 }
 
 // MARK: - Provider Row
-// UI: only name, type, enabled/default toggles, test, delete.
-// Everything else (model, API key, URL…) is in providers.json.
 
 struct ProviderRow: View {
     @Binding var provider: Provider
@@ -308,14 +306,16 @@ struct ProviderRow: View {
     @State private var expanded = false
     @State private var confirmDelete = false
     @State private var testState: ProviderTestState = .idle
+    // Editable fields (local state synced with provider binding)
     @State private var keyField = ""
     @State private var keySaved: Bool? = nil
+    @State private var urlField = ""
+    @State private var modelField = ""
+    @State private var deploymentField = ""
+    @State private var apiVersionField = ""
 
     private var hasKey: Bool {
         (provider.auth?.apiKey?.isEmpty == false) || KeychainStore.hasKey(forProviderID: provider.id)
-    }
-    private var supportsInlineKey: Bool {
-        provider.kind == .anthropic || provider.kind == .openai
     }
 
     var body: some View {
@@ -361,46 +361,85 @@ struct ProviderRow: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Divider()
 
-                    HStack {
-                        Text("Název").font(.caption).foregroundStyle(.secondary).frame(width: 72, alignment: .trailing)
-                        TextField("Název providera", text: $provider.name).onChange(of: provider.name) { onChange() }
+                    // Name
+                    providerField("Název") {
+                        TextField("Název providera", text: $provider.name)
+                            .onChange(of: provider.name) { onChange() }
                     }
 
-                    HStack {
-                        Text("Typ").font(.caption).foregroundStyle(.secondary).frame(width: 72, alignment: .trailing)
+                    // Type
+                    providerField("Typ") {
                         Picker("", selection: $provider.kind) {
                             ForEach(ProviderKind.allCases, id: \.self) { Text($0.displayName).tag($0) }
                         }
                         .labelsHidden().frame(width: 200)
                         .onChange(of: provider.kind) { _, newKind in
-                            // Re-apply template for the new kind (keep id and name)
                             let t = Provider.template(kind: newKind, name: provider.name)
                             provider.auth     = t.auth
                             provider.endpoint = t.endpoint
                             provider.options  = t.options
+                            syncFields()
                             onChange()
                         }
                     }
 
+                    // API Key — all provider types
+                    providerField("API Klíč") {
+                        SecureField("API klíč", text: $keyField).onSubmit { saveKey() }
+                        Button("Uložit") { saveKey() }.disabled(keyField.isEmpty)
+                        if let saved = keySaved {
+                            Image(systemName: saved ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(saved ? .green : .red)
+                        }
+                    }
+
+                    // Base URL — all types
+                    providerField("URL") {
+                        TextField("https://api.openai.com/v1", text: $urlField)
+                            .onChange(of: urlField) {
+                                if provider.endpoint == nil { provider.endpoint = ProviderEndpoint() }
+                                provider.endpoint?.baseURL = urlField.isEmpty ? nil : urlField
+                                onChange()
+                            }
+                    }
+
+                    // Model name — all types
+                    providerField("Model") {
+                        TextField(provider.kind == .azureOpenAI ? "deployment name nebo model" : "gpt-4o, claude-sonnet-4-6…", text: $modelField)
+                            .onChange(of: modelField) {
+                                if provider.options == nil { provider.options = ProviderOptions() }
+                                provider.options?.model = modelField.isEmpty ? nil : modelField
+                                onChange()
+                            }
+                    }
+
+                    // Azure-specific extra fields
+                    if provider.kind == .azureOpenAI {
+                        providerField("Deployment") {
+                            TextField("my-gpt4-deployment", text: $deploymentField)
+                                .onChange(of: deploymentField) {
+                                    if provider.endpoint == nil { provider.endpoint = ProviderEndpoint() }
+                                    provider.endpoint?.deploymentName = deploymentField.isEmpty ? nil : deploymentField
+                                    onChange()
+                                }
+                        }
+                        providerField("API verze") {
+                            TextField("2024-02-01", text: $apiVersionField)
+                                .onChange(of: apiVersionField) {
+                                    if provider.endpoint == nil { provider.endpoint = ProviderEndpoint() }
+                                    provider.endpoint?.apiVersion = apiVersionField.isEmpty ? nil : apiVersionField
+                                    onChange()
+                                }
+                        }
+                    }
+
+                    // Active / Default toggles
                     HStack(spacing: 16) {
                         Text("").frame(width: 72)
                         Toggle("Aktivní", isOn: $provider.enabled)
                             .font(.caption).onChange(of: provider.enabled) { onChange() }
                         Toggle("Výchozí", isOn: $provider.isDefault)
                             .font(.caption).onChange(of: provider.isDefault) { onChange() }
-                    }
-
-                    // API key — only for Anthropic and OpenAI (Azure/custom use providers.json)
-                    if supportsInlineKey {
-                        HStack(alignment: .center) {
-                            Text("API Klíč").font(.caption).foregroundStyle(.secondary).frame(width: 72, alignment: .trailing)
-                            SecureField("API klíč", text: $keyField).onSubmit { saveKey() }
-                            Button("Uložit") { saveKey() }.disabled(keyField.isEmpty)
-                            if let saved = keySaved {
-                                Image(systemName: saved ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                    .foregroundStyle(saved ? .green : .red)
-                            }
-                        }
                     }
 
                     // Test connectivity
@@ -426,27 +465,29 @@ struct ProviderRow: View {
                             Text(msg).font(.caption).foregroundStyle(.red).lineLimit(3)
                         }
                     }
-
-                    HStack {
-                        Text("").frame(width: 72)
-                        Group {
-                            if supportsInlineKey {
-                                Text("Model, URL a ostatní nastavte v providers.json")
-                            } else {
-                                Text("API klíč, model, URL a ostatní nastavte v providers.json")
-                            }
-                        }
-                        .font(.caption2).foregroundStyle(.secondary)
-                    }
                 }
                 .padding(.leading, 20).padding(.bottom, 8)
             }
         }
-        .onAppear {
-            if supportsInlineKey {
-                keyField = (try? KeychainStore.load(forProviderID: provider.id)) ?? ""
-            }
+        .onAppear { syncFields() }
+    }
+
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private func providerField<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .center) {
+            Text(label).font(.caption).foregroundStyle(.secondary).frame(width: 72, alignment: .trailing)
+            content()
         }
+    }
+
+    private func syncFields() {
+        keyField        = (try? KeychainStore.load(forProviderID: provider.id)) ?? ""
+        urlField        = provider.endpoint?.baseURL ?? ""
+        modelField      = provider.options?.model ?? ""
+        deploymentField = provider.endpoint?.deploymentName ?? ""
+        apiVersionField = provider.endpoint?.apiVersion ?? ""
     }
 
     private func saveKey() {

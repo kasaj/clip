@@ -70,13 +70,17 @@ enum ProviderFactory {
 
         case .openai, .custom:
             let base = provider.effectiveBaseURL
-            guard !base.isEmpty, let parsedURL = URL(string: base) else {
-                throw LLMError.missingAPIKey("\(provider.name) — endpoint.base_url není nastavena")
+            guard !base.isEmpty, base != "https://", let parsedURL = URL(string: base) else {
+                throw LLMError.missingAPIKey("\(provider.name) — URL endpoint není nastavena (Nastavení → Providery → URL)")
             }
             let lower = base.lowercased()
             let isAzure = lower.contains(".azure.com") || lower.contains(".services.ai.azure.com")
             let auth: OpenAIAuthStyle = isAzure ? .apiKey : .bearer
-            let finalModel = resolvedModel.isEmpty ? "gpt-4o" : resolvedModel
+            let providerDefault = provider.kind == .openai ? "gpt-4o" : ""
+            let finalModel = resolvedModel.isEmpty ? providerDefault : resolvedModel
+            guard !finalModel.isEmpty else {
+                throw LLMError.missingAPIKey("\(provider.name) — Model není nastaven (Nastavení → Providery → Model)")
+            }
             if lower.hasSuffix("/responses") {
                 return ResponsesAPIProvider(model: finalModel, apiKey: apiKey,
                                             endpointURL: parsedURL, authStyle: auth,
