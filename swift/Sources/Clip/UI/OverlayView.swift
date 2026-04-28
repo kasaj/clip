@@ -647,62 +647,69 @@ struct OverlayView: View {
 
 @MainActor
 enum PopupWindowManager {
-    private static var clipboardWindow: NSWindow?
-    private static var historyWindow: NSWindow?
+    /// Reusable NSPanel instances — created once, hidden/shown as needed.
+    private static var clipboardPanel: NSPanel?
+    private static var historyPanel: NSPanel?
 
-    /// Delegate that intercepts the red-X close button and hides the window
+    /// Delegate that intercepts the red-X close button and hides the panel
     /// instead of closing it, preventing the app from quitting.
     private static let hideOnCloseDelegate = HideOnCloseDelegate()
 
     static func showClipboard(text: String) {
-        if let w = clipboardWindow, w.isVisible {
-            w.makeKeyAndOrderFront(nil); return
+        // Reuse existing panel; always update content so fresh text is shown.
+        let w: NSPanel
+        if let existing = clipboardPanel {
+            w = existing
+        } else {
+            w = makePopupPanel(title: "Clipboard", width: 540, height: 400)
+            clipboardPanel = w
         }
-        let view = ClipboardPreviewWindowView(text: text)
-        clipboardWindow = makePanel(rootView: view, title: "Clipboard", width: 540, height: 400)
-        clipboardWindow?.makeKeyAndOrderFront(nil)
+        w.contentView = NSHostingView(rootView: ClipboardPreviewWindowView(text: text))
+        w.makeKeyAndOrderFront(nil)
     }
 
     static func showHistory() {
-        if let w = historyWindow, w.isVisible {
-            w.makeKeyAndOrderFront(nil); return
+        // Reuse existing panel; HistoryWindowView observes HistoryStore, auto-updates.
+        if historyPanel == nil {
+            historyPanel = makePopupPanel(title: "History", width: 460, height: 340)
+            historyPanel?.contentView = NSHostingView(rootView: HistoryWindowView())
         }
-        historyWindow = makePanel(rootView: HistoryWindowView(), title: "History", width: 460, height: 340)
-        historyWindow?.makeKeyAndOrderFront(nil)
+        historyPanel?.makeKeyAndOrderFront(nil)
     }
 
     static func closeHistory() {
-        historyWindow?.orderOut(nil)
+        historyPanel?.orderOut(nil)
     }
 
     static func closeAll() {
-        clipboardWindow?.orderOut(nil)
-        historyWindow?.orderOut(nil)
+        clipboardPanel?.orderOut(nil)
+        historyPanel?.orderOut(nil)
     }
 
-    private static func makePanel<V: View>(rootView: V, title: String, width: CGFloat, height: CGFloat) -> NSWindow {
-        let w = NSWindow(
+    /// Creates a floating NSPanel that hides (rather than closes) when the user clicks the red X.
+    private static func makePopupPanel(title: String, width: CGFloat, height: CGFloat) -> NSPanel {
+        let w = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered, defer: false
         )
-        w.title = title          // shown next to traffic lights in standard title bar
+        w.title = title
         w.level = .floating
         w.isRestorable = false
-        w.delegate = hideOnCloseDelegate   // red X hides, not closes
-        w.contentView = NSHostingView(rootView: rootView)
+        w.isReleasedWhenClosed = false   // never deallocate on close
+        w.delegate = hideOnCloseDelegate
         w.center()
         return w
     }
 }
 
 /// NSWindowDelegate that intercepts windowShouldClose so the red X button
-/// hides the popup window instead of destroying it (which would trigger
+/// hides the popup panel instead of destroying it (which would trigger
 /// app termination in an LSUIElement app).
 private class HideOnCloseDelegate: NSObject, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         sender.orderOut(nil)
-        return false   // prevent actual close / deallocation
+        return false   // cancel the close — panel stays alive
     }
 }
 

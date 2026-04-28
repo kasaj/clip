@@ -43,12 +43,16 @@ final class OverlayWindowController: NSObject {
         )
         panel.isFloatingPanel = true
         panel.isRestorable = false
+        panel.isReleasedWhenClosed = false   // never deallocate via close
         panel.level = .floating
         panel.titlebarAppearsTransparent = true
         panel.titleVisibility = .hidden
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.appearance = nil   // follow system light/dark mode
+
+        // Safety net: intercept any close attempt and hide instead.
+        panel.delegate = self
 
         // Hide the native traffic-light buttons — close/minimise/zoom
         // are meaningless for a floating tool panel; we use our own ✕ button.
@@ -60,5 +64,16 @@ final class OverlayWindowController: NSObject {
             .ignoresSafeArea()
         panel.contentView = NSHostingView(rootView: view)
         return panel
+    }
+}
+
+// MARK: - NSWindowDelegate (overlay panel)
+
+extension OverlayWindowController: NSWindowDelegate {
+    /// Intercept any close attempt on the main overlay panel.
+    /// The panel is hidden (orderOut) rather than destroyed so the app never quits.
+    nonisolated func windowShouldClose(_ sender: NSWindow) -> Bool {
+        Task { @MainActor in sender.orderOut(nil) }
+        return false
     }
 }
