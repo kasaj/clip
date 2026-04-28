@@ -46,8 +46,10 @@ enum ContextResolver {
                 discovered += WebFetcher.extractHrefURLs(from: html)
             }
 
-            // ── Method 2: RTFD / RTF .link attributes ──────────────────────
-            discovered += extractLinksFromRichText(pasteboard: pasteboard)
+            // ── Method 2: RTFD / RTF .link attributes (MainActor — NSAttributedString
+            //    requires UI thread to initialise reliably on macOS) ─────────────
+            let rtfLinks = await MainActor.run { extractLinksFromRichText(pasteboard: pasteboard) }
+            discovered += rtfLinks
 
             // Append URLs that are new (not already visible in plain text), deduplicated
             var seen = Set<String>()
@@ -126,6 +128,7 @@ enum ContextResolver {
     private static func extractLinksFromRichText(pasteboard: NSPasteboard) -> [String] {
         let candidates: [(NSPasteboard.PasteboardType, NSAttributedString.DocumentType)] = [
             (.rtfd, .rtfd),
+            (NSPasteboard.PasteboardType("com.apple.flat-rtfd"), .rtfd),
             (.rtf,  .rtf)
         ]
         for (pbType, docType) in candidates {

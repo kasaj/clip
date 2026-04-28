@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var launchAtLogin = false
     @State private var importedActions: [Action] = []
     @State private var showImportAlert = false
+    @State private var clipboardPreviewText = ""   // "0" = vše, jinak číslo
 
     var body: some View {
         TabView {
@@ -39,18 +40,16 @@ struct SettingsView: View {
                     }
                 HStack {
                     Text("Náhled clipboardu:")
-                    Picker("", selection: $config.clipboardPreviewChars) {
-                        Text("100").tag(100)
-                        Text("300").tag(300)
-                        Text("500").tag(500)
-                        Text("1000").tag(1000)
-                        Text("Vše").tag(0)
-                    }
-                    .labelsHidden().frame(width: 80).pickerStyle(.menu)
-                    .onChange(of: config.clipboardPreviewChars) { _, val in
-                        ConfigStore.shared.update { $0.clipboardPreviewChars = val }
-                    }
-                    Text("znaků (oko = vše)").font(.caption).foregroundStyle(.secondary)
+                    TextField("300", text: $clipboardPreviewText)
+                        .frame(width: 60)
+                        .multilineTextAlignment(.trailing)
+                        .onChange(of: clipboardPreviewText) { _, val in
+                            let n = Int(val) ?? (val.trimmingCharacters(in: .whitespaces).isEmpty ? 300 : -1)
+                            guard n >= 0 else { return }
+                            config.clipboardPreviewChars = n
+                            ConfigStore.shared.update { $0.clipboardPreviewChars = n }
+                        }
+                    Text("znaků (0 = vše, oko = vždy vše)").font(.caption).foregroundStyle(.secondary)
                 }
             }
 
@@ -136,6 +135,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped).padding()
+        .onAppear { clipboardPreviewText = config.clipboardPreviewChars == 0 ? "0" : "\(config.clipboardPreviewChars)" }
     }
 
     private func saveHotkey() {

@@ -363,7 +363,16 @@ struct OverlayView: View {
                     } else if isResolvingContext {
                         Text(contextIsFromOCR ? "Reading image…" : "Reading clipboard…").foregroundStyle(.secondary)
                     } else if let text = contextText {
-                        Text(maskedPreview(text)).lineLimit(showFullContext ? nil : 2)
+                        if showFullContext {
+                            ScrollView {
+                                Text(text)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .frame(maxHeight: 160)
+                        } else {
+                            Text(maskedPreview(text)).lineLimit(2)
+                        }
                     } else {
                         Text("Clipboard empty — type a prompt below").foregroundStyle(.secondary)
                     }
@@ -425,9 +434,11 @@ struct OverlayView: View {
                 .help("Uložit vstup a výstup do session logu")
             }
 
+            let hasURLs = contextText.map { WebFetcher.containsAnyURL($0) } ?? false
             Toggle(isOn: $loadURL) {
                 Label("URLFetch", systemImage: "globe")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2)
+                    .foregroundStyle(hasURLs ? Color.accentColor : Color.secondary)
             }
             .toggleStyle(.checkbox)
             .disabled(loadURLAuto)
@@ -435,9 +446,11 @@ struct OverlayView: View {
                   ? "Clipboard obsahuje URL — stránka bude načtena automaticky"
                   : "Načíst obsah URL z clipboardu a přidat ke kontextu")
 
+            let hasClipboard = (contextText != nil || contextImageData != nil) && !isResolvingContext
             Toggle(isOn: $ignoreClipboard) {
                 Label("Ignore", systemImage: "doc.on.clipboard.fill")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2)
+                    .foregroundStyle(hasClipboard ? Color.primary : Color.secondary)
             }
             .toggleStyle(.checkbox)
             .help("Ignorovat clipboard; spustit agenta pouze s promptem")
