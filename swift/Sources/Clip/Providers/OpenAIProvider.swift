@@ -48,24 +48,26 @@ struct OpenAIProvider: LLMProvider {
                         var userBlocks: [OpenAIContentBlock] = [.image(url: dataURL)]
                         if !userContent.isEmpty { userBlocks.append(.text(userContent)) }
 
+                        var mmMessages: [OpenAIMultimodalMessage] = []
+                        if !systemPrompt.isEmpty { mmMessages.append(.system(systemPrompt)) }
+                        mmMessages.append(.user(userBlocks))
                         let body = OpenAIMultimodalRequest(
                             model: model,
-                            messages: [
-                                .system(systemPrompt),
-                                .user(userBlocks)
-                            ],
+                            messages: mmMessages,
                             temperature: temperature,
                             maxTokens: maxTokens
                         )
                         request.httpBody = try JSONEncoder().encode(body)
                     } else {
                         // Text-only
+                        var txtMessages: [OpenAITextRequest.Message] = []
+                        if !systemPrompt.isEmpty {
+                            txtMessages.append(.init(role: "system", content: systemPrompt))
+                        }
+                        txtMessages.append(.init(role: "user", content: userContent))
                         let body = OpenAITextRequest(
                             model: model,
-                            messages: [
-                                .init(role: "system", content: systemPrompt),
-                                .init(role: "user",   content: userContent)
-                            ],
+                            messages: txtMessages,
                             temperature: temperature,
                             maxTokens: maxTokens
                         )

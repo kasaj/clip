@@ -56,7 +56,7 @@ struct AnthropicProvider: LLMProvider {
                         let body = AnthropicMultimodalRequest(
                             model: model, maxTokens: maxTokens,
                             temperature: min(temperature, 1.0),
-                            system: systemPrompt,
+                            system: systemPrompt.isEmpty ? nil : systemPrompt,
                             messages: [.init(role: "user", content: blocks)]
                         )
                         request.httpBody = try JSONEncoder().encode(body)
@@ -65,7 +65,7 @@ struct AnthropicProvider: LLMProvider {
                         let body = AnthropicTextRequest(
                             model: model, maxTokens: maxTokens,
                             temperature: min(temperature, 1.0),
-                            system: systemPrompt,
+                            system: systemPrompt.isEmpty ? nil : systemPrompt,
                             messages: [.init(role: "user", content: userContent)]
                         )
                         request.httpBody = try JSONEncoder().encode(body)
@@ -111,11 +111,21 @@ struct AnthropicProvider: LLMProvider {
 
 private struct AnthropicTextRequest: Encodable {
     let model: String; let maxTokens: Int; let temperature: Double
-    let system: String; let messages: [Message]; let stream = true
+    let system: String?   // nil → field omitted; empty system prompt = no restriction
+    let messages: [Message]; let stream = true
     struct Message: Encodable { let role: String; let content: String }
     enum CodingKeys: String, CodingKey {
         case model, temperature, system, messages, stream
         case maxTokens = "max_tokens"
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(model, forKey: .model)
+        try c.encode(maxTokens, forKey: .maxTokens)
+        try c.encode(temperature, forKey: .temperature)
+        try c.encodeIfPresent(system, forKey: .system)
+        try c.encode(messages, forKey: .messages)
+        try c.encode(stream, forKey: .stream)
     }
 }
 
@@ -123,11 +133,21 @@ private struct AnthropicTextRequest: Encodable {
 
 private struct AnthropicMultimodalRequest: Encodable {
     let model: String; let maxTokens: Int; let temperature: Double
-    let system: String; let messages: [Message]; let stream = true
+    let system: String?   // nil → field omitted
+    let messages: [Message]; let stream = true
     struct Message: Encodable { let role: String; let content: [AnthropicContentBlock] }
     enum CodingKeys: String, CodingKey {
         case model, temperature, system, messages, stream
         case maxTokens = "max_tokens"
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(model, forKey: .model)
+        try c.encode(maxTokens, forKey: .maxTokens)
+        try c.encode(temperature, forKey: .temperature)
+        try c.encodeIfPresent(system, forKey: .system)
+        try c.encode(messages, forKey: .messages)
+        try c.encode(stream, forKey: .stream)
     }
 }
 
