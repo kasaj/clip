@@ -377,14 +377,7 @@ struct OverlayView: View {
                   ? "Show recognised text from image"
                   : "Clipboard does not contain an image with recognisable text")
 
-            if speech.isSpeaking {
-                Button("Stop") { speech.stop() }
-                    .font(.caption2).buttonStyle(.bordered).controlSize(.small)
-            }
-
-            Spacer()
-
-            // History button — same style as other labels, blue when has entries
+            // History button — right after OCR, same caption style, blue when has entries
             if ConfigStore.shared.config.historyLimit > 0 {
                 let hasHistory = !history.entries.isEmpty
                 Button {
@@ -399,6 +392,13 @@ struct OverlayView: View {
                 .buttonStyle(.plain)
                 .help("Show history")
             }
+
+            if speech.isSpeaking {
+                Button("Stop") { speech.stop() }
+                    .font(.caption2).buttonStyle(.bordered).controlSize(.small)
+            }
+
+            Spacer()
         }
     }
 
@@ -675,16 +675,13 @@ enum PopupWindowManager {
     private static func makePanel<V: View>(rootView: V, title: String, width: CGFloat, height: CGFloat) -> NSWindow {
         let w = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered, defer: false
         )
-        w.title = title
-        w.titlebarAppearsTransparent = true
-        w.titleVisibility = .hidden
-        w.isMovableByWindowBackground = true
+        w.title = title          // shown next to traffic lights in standard title bar
         w.level = .floating
         w.isRestorable = false
-        w.contentView = NSHostingView(rootView: rootView.ignoresSafeArea())
+        w.contentView = NSHostingView(rootView: rootView)
         w.center()
         return w
     }
