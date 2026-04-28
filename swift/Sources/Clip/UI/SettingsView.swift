@@ -37,6 +37,22 @@ struct SettingsView: View {
                         ConfigStore.shared.update { $0.historyLimit = val }
                         HistoryStore.shared.trim(to: val)
                     }
+                HStack {
+                    Text("Náhled clipboardu:")
+                    Picker("", selection: $config.clipboardPreviewChars) {
+                        Text("100 znaků").tag(100)
+                        Text("300 znaků").tag(300)
+                        Text("500 znaků").tag(500)
+                        Text("1 000 znaků").tag(1000)
+                        Text("Vše").tag(0)
+                    }
+                    .labelsHidden().frame(width: 130).pickerStyle(.menu)
+                    .onChange(of: config.clipboardPreviewChars) { _, val in
+                        ConfigStore.shared.update { $0.clipboardPreviewChars = val }
+                    }
+                }
+                Text("Maximální počet zobrazených znaků z clipboardu (kliknutím na oko v náhledu).")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Globální zkratka") {
@@ -615,7 +631,7 @@ struct ActionRow: View {
             }
 
             if models.isEmpty {
-                TextField("název modelu", text: $customModelText).frame(width: 240)
+                TextField("název modelu", text: $customModelText).frame(minWidth: 200)
                     .onChange(of: customModelText) { if !customModelText.isEmpty { action.model = customModelText } }
             } else {
                 Picker("Model", selection: $pickerModel) {
@@ -625,10 +641,10 @@ struct ActionRow: View {
                     Divider()
                     Text("Vlastní model…").tag(customSentinel)
                 }
-                .labelsHidden().frame(width: 200)
+                .labelsHidden().frame(minWidth: 240)
                 .onChange(of: pickerModel) { if pickerModel != customSentinel { action.model = pickerModel; customModelText = "" } }
                 if isCustom {
-                    TextField("název modelu", text: $customModelText).frame(width: 140)
+                    TextField("název modelu", text: $customModelText).frame(minWidth: 180)
                         .onChange(of: customModelText) { if !customModelText.isEmpty { action.model = customModelText } }
                 }
             }

@@ -319,7 +319,7 @@ struct OverlayView: View {
                     } else if isResolvingContext {
                         Text(contextIsFromOCR ? "Reading image…" : "Reading clipboard…").foregroundStyle(.secondary)
                     } else if let text = contextText {
-                        Text(maskedPreview(text)).lineLimit(showFullContext ? 6 : 2)
+                        Text(maskedPreview(text)).lineLimit(showFullContext ? nil : 2)
                     } else {
                         Text("Clipboard empty — type a prompt below").foregroundStyle(.secondary)
                     }
@@ -342,7 +342,9 @@ struct OverlayView: View {
 
     private func maskedPreview(_ text: String) -> String {
         if showFullContext {
-            return text.count > 400 ? String(text.prefix(400)) + "…" : text
+            let limit = ConfigStore.shared.config.clipboardPreviewChars
+            if limit == 0 { return text }
+            return text.count > limit ? String(text.prefix(limit)) + "…" : text
         }
         let prefix = String(text.prefix(3))
         let bullets = String(repeating: "•", count: min(max(text.count - 3, 0), 24))
@@ -380,10 +382,12 @@ struct OverlayView: View {
                 .help("Uložit vstup a výstup do session logu")
             }
 
-            // Load URL
+            // URLFetch — highlighted when clipboard text contains any URL
+            let hasURLs = contextText.map { WebFetcher.containsAnyURL($0) } ?? false
             Toggle(isOn: $loadURL) {
-                Label("Load URL", systemImage: "globe")
-                    .font(.caption2).foregroundStyle(.secondary)
+                Label("URLFetch", systemImage: "globe")
+                    .font(.caption2)
+                    .foregroundStyle(hasURLs ? Color.accentColor : Color.secondary)
             }
             .toggleStyle(.checkbox)
             .disabled(loadURLAuto)
@@ -391,9 +395,12 @@ struct OverlayView: View {
                   ? "Clipboard obsahuje URL — stránka bude načtena automaticky"
                   : "Načíst obsah URL z clipboardu a přidat ke kontextu")
 
+            // Ignore — highlighted when clipboard has content
+            let hasContent = (contextText != nil || contextImageData != nil) && !isResolvingContext
             Toggle(isOn: $ignoreClipboard) {
                 Label("Ignore", systemImage: "doc.on.clipboard.fill")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2)
+                    .foregroundStyle(hasContent ? Color.primary : Color.secondary)
             }
             .toggleStyle(.checkbox)
             .help("Ignorovat clipboard; spustit agenta pouze s promptem")
@@ -456,22 +463,26 @@ struct OverlayView: View {
                 .padding(.bottom, 2)
             }
 
-            ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
-                HStack(spacing: 6) {
-                    actionButton(
-                        title: action.name,
-                        missingKey: !hasKey(for: action),
-                        isRunning: engine.isLoading && lastAction == action,
-                        keyHint: index < 9 ? String(index + 1) : nil
-                    ) { runAction(action) }
-                    Button {
-                        editingAction = action
-                    } label: {
-                        Image(systemName: "pencil").font(.caption2).foregroundStyle(.tertiary)
+            // Two-column grid — each button half-width
+            let columns = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
+                ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                    HStack(spacing: 4) {
+                        actionButton(
+                            title: action.name,
+                            missingKey: !hasKey(for: action),
+                            isRunning: engine.isLoading && lastAction == action,
+                            keyHint: index < 9 ? String(index + 1) : nil
+                        ) { runAction(action) }
+                        Button {
+                            editingAction = action
+                        } label: {
+                            Image(systemName: "pencil").font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Edit action \(action.name)")
+                        .disabled(engine.isLoading)
                     }
-                    .buttonStyle(.plain)
-                    .help("Edit action \(action.name)")
-                    .disabled(engine.isLoading)
                 }
             }
 

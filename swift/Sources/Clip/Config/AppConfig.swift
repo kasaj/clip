@@ -284,39 +284,43 @@ struct AppConfig: Codable {
     var historyLimit: Int = 5
     var modelPresets: [String: [ModelPreset]] = [:]
     var recordSessions: Bool = false
+    /// Max chars shown in clipboard preview (0 = unlimited)
+    var clipboardPreviewChars: Int = 300
 
     init(schemaVersion: Int = 1, hotkeyKeyCode: Int, hotkeyModifiers: Int,
          actions: [Action], providers: [Provider] = [],
          configFolderPath: String? = nil, sessionFolderPath: String? = nil,
          autoCopyAndClose: Bool = false,
          historyLimit: Int = 5, modelPresets: [String: [ModelPreset]] = [:],
-         recordSessions: Bool = false) {
-        self.schemaVersion    = schemaVersion
-        self.hotkeyKeyCode    = hotkeyKeyCode
-        self.hotkeyModifiers  = hotkeyModifiers
-        self.actions          = actions
-        self.providers        = providers
-        self.configFolderPath = configFolderPath
-        self.sessionFolderPath = sessionFolderPath
-        self.autoCopyAndClose = autoCopyAndClose
-        self.historyLimit     = historyLimit
-        self.modelPresets     = modelPresets
-        self.recordSessions   = recordSessions
+         recordSessions: Bool = false, clipboardPreviewChars: Int = 300) {
+        self.schemaVersion          = schemaVersion
+        self.hotkeyKeyCode          = hotkeyKeyCode
+        self.hotkeyModifiers        = hotkeyModifiers
+        self.actions                = actions
+        self.providers              = providers
+        self.configFolderPath       = configFolderPath
+        self.sessionFolderPath      = sessionFolderPath
+        self.autoCopyAndClose       = autoCopyAndClose
+        self.historyLimit           = historyLimit
+        self.modelPresets           = modelPresets
+        self.recordSessions         = recordSessions
+        self.clipboardPreviewChars  = clipboardPreviewChars
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        schemaVersion     = try c.decode(Int.self,      forKey: .schemaVersion)
-        hotkeyKeyCode     = try c.decode(Int.self,      forKey: .hotkeyKeyCode)
-        hotkeyModifiers   = try c.decode(Int.self,      forKey: .hotkeyModifiers)
-        actions           = try c.decode([Action].self, forKey: .actions)
-        configFolderPath  = try c.decodeIfPresent(String.self,  forKey: .configFolderPath)
-        sessionFolderPath = try c.decodeIfPresent(String.self,  forKey: .sessionFolderPath)
-        autoCopyAndClose  = try c.decodeIfPresent(Bool.self,    forKey: .autoCopyAndClose) ?? false
-        historyLimit      = try c.decodeIfPresent(Int.self,     forKey: .historyLimit)     ?? 5
-        modelPresets      = try c.decodeIfPresent([String: [ModelPreset]].self, forKey: .modelPresets) ?? [:]
-        recordSessions    = try c.decodeIfPresent(Bool.self,    forKey: .recordSessions)   ?? false
-        providers         = try c.decodeIfPresent([Provider].self, forKey: .providers)     ?? []
+        schemaVersion          = try c.decode(Int.self,      forKey: .schemaVersion)
+        hotkeyKeyCode          = try c.decode(Int.self,      forKey: .hotkeyKeyCode)
+        hotkeyModifiers        = try c.decode(Int.self,      forKey: .hotkeyModifiers)
+        actions                = try c.decode([Action].self, forKey: .actions)
+        configFolderPath       = try c.decodeIfPresent(String.self,  forKey: .configFolderPath)
+        sessionFolderPath      = try c.decodeIfPresent(String.self,  forKey: .sessionFolderPath)
+        autoCopyAndClose       = try c.decodeIfPresent(Bool.self,    forKey: .autoCopyAndClose)      ?? false
+        historyLimit           = try c.decodeIfPresent(Int.self,     forKey: .historyLimit)          ?? 5
+        modelPresets           = try c.decodeIfPresent([String: [ModelPreset]].self, forKey: .modelPresets) ?? [:]
+        recordSessions         = try c.decodeIfPresent(Bool.self,    forKey: .recordSessions)        ?? false
+        providers              = try c.decodeIfPresent([Provider].self, forKey: .providers)          ?? []
+        clipboardPreviewChars  = try c.decodeIfPresent(Int.self,     forKey: .clipboardPreviewChars) ?? 300
     }
 
     static var `default`: AppConfig {

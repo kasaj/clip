@@ -73,19 +73,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         overlayWindowController?.hideOverlay()
-        if settingsWindowController == nil {
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 640, height: 480),
-                styleMask: [.titled, .closable, .resizable, .miniaturizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.title = "Clip"
-            window.isRestorable = false
-            window.contentView = NSHostingView(rootView: SettingsView())
-            window.center()
-            settingsWindowController = NSWindowController(window: window)
+        // Always create a fresh SettingsView so it reads current ConfigStore state.
+        // If the window is already visible just bring it to front; otherwise rebuild it
+        // so a stale @State snapshot is never shown.
+        if settingsWindowController?.window?.isVisible == true {
+            settingsWindowController?.window?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
         }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 480),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Clip"
+        window.isRestorable = false
+        window.contentView = NSHostingView(rootView: SettingsView())
+        window.center()
+        settingsWindowController = NSWindowController(window: window)
         NSApp.activate(ignoringOtherApps: true)
         settingsWindowController?.showWindow(nil)
         settingsWindowController?.window?.makeKeyAndOrderFront(nil)
