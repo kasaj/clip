@@ -13,7 +13,11 @@ struct HistoryEntry: Identifiable {
 final class HistoryStore: ObservableObject {
     static let shared = HistoryStore()
     @Published private(set) var entries: [HistoryEntry] = []
+    @Published private(set) var selectedResult: String? = nil
     private init() {}
+
+    func selectResult(_ result: String) { selectedResult = result }
+    func clearSelection() { selectedResult = nil }
 
     func add(actionName: String, input: String, result: String, sessionFileURL: URL? = nil) {
         let limit = ConfigStore.shared.config.historyLimit

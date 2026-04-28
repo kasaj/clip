@@ -70,6 +70,12 @@ struct OverlayView: View {
             recordThisSession = ConfigStore.shared.config.recordSessions
             resolveContext()
         }
+        // When user picks a history entry in the popup window, show it
+        .onChange(of: history.selectedResult) { _, result in
+            guard let result else { return }
+            shownHistoryResult = result
+            history.clearSelection()
+        }
         .onChange(of: engine.isLoading) { _, loading in
             guard !loading, engine.errorMessage == nil, !engine.result.isEmpty else { return }
             let sessionURL = engine.lastSessionURL
@@ -381,9 +387,7 @@ struct OverlayView: View {
             if ConfigStore.shared.config.historyLimit > 0 {
                 let hasHistory = !history.entries.isEmpty
                 Button {
-                    PopupWindowManager.showHistory { selected in
-                        shownHistoryResult = selected
-                    }
+                    PopupWindowManager.showHistory()
                 } label: {
                     Label("History", systemImage: hasHistory ? "clock.fill" : "clock")
                         .font(.caption2)
@@ -655,16 +659,16 @@ enum PopupWindowManager {
         clipboardWindow?.makeKeyAndOrderFront(nil)
     }
 
-    static func showHistory(onSelect: @escaping (String) -> Void) {
+    static func showHistory() {
         if let w = historyWindow, w.isVisible {
             w.makeKeyAndOrderFront(nil); return
         }
-        let view = HistoryWindowView(onSelect: { result in
-            onSelect(result)
-            historyWindow?.orderOut(nil)
-        })
-        historyWindow = makePanel(rootView: view, title: "History", width: 460, height: 340)
+        historyWindow = makePanel(rootView: HistoryWindowView(), title: "History", width: 460, height: 340)
         historyWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    static func closeHistory() {
+        historyWindow?.orderOut(nil)
     }
 
     static func closeAll() {
@@ -717,25 +721,19 @@ private struct ClipboardPreviewWindowView: View {
 
 private struct HistoryWindowView: View {
     @ObservedObject private var history = HistoryStore.shared
-    let onSelect: (String) -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Label("History", systemImage: "clock")
-                    .font(.headline)
-                Spacer()
-            }
-            .padding(.horizontal, 16).padding(.vertical, 10)
-            Divider()
+        Group {
             if history.entries.isEmpty {
-                Spacer()
-                Text("No history yet").font(.caption).foregroundStyle(.secondary)
-                Spacer()
+                Text("No history yet")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(history.entries) { entry in
                     Button {
-                        onSelect(entry.result)
+                        // Write via HistoryStore — no closure crossing NSHostingView boundary
+                        HistoryStore.shared.selectResult(entry.result)
+                        PopupWindowManager.closeHistory()
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
