@@ -13,7 +13,8 @@ final class ActionEngine: ObservableObject {
 
     private var currentTask: Task<Void, Never>?
 
-    func run(action: Action, input: String, recordSession: Bool = false, loadURL: Bool = false) {
+    func run(action: Action, input: String, recordSession: Bool = false,
+             loadURL: Bool = false, imageData: Data? = nil, imageMimeType: String? = nil) {
         cancel()
         isLoading = true
         errorMessage = nil
@@ -63,7 +64,10 @@ final class ActionEngine: ObservableObject {
             let started = Date()
             do {
                 let provider = try ProviderFactory.make(for: action)
-                for try await chunk in provider.stream(systemPrompt: action.systemPrompt, userContent: effectiveInput) {
+                for try await chunk in provider.stream(systemPrompt: action.systemPrompt,
+                                                       userContent: effectiveInput,
+                                                       imageData: imageData,
+                                                       mimeType: imageMimeType) {
                     result += chunk
                 }
                 let duration = Date().timeIntervalSince(started)

@@ -10,6 +10,8 @@ struct OverlayView: View {
 
     // Context
     @State private var contextText: String?
+    @State private var contextImageData: Data?       // set when clipboard has image without text
+    @State private var contextMimeType: String = "image/jpeg"
     @State private var isResolvingContext = false
     @State private var contextIsFromOCR = false
     @State private var showFullContext = false
@@ -49,7 +51,7 @@ struct OverlayView: View {
     }
     private var hasResult: Bool { displayedResult != nil || engine.errorMessage != nil }
     private var canRun: Bool {
-        !engine.isLoading && (effectiveContext != nil || !userPrompt.isEmpty)
+        !engine.isLoading && (effectiveContext != nil || contextImageData != nil || !userPrompt.isEmpty)
     }
 
     var body: some View {
@@ -118,6 +120,7 @@ struct OverlayView: View {
         ignoreClipboard = false
         loadURL = false
         loadURLAuto = false
+        contextImageData = nil
         readOutput = false
         recordThisSession = ConfigStore.shared.config.recordSessions
         showHistory = false
@@ -263,34 +266,54 @@ struct OverlayView: View {
 
     @ViewBuilder
     private var contextPreview: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
-                .foregroundStyle(.secondary).font(.caption).padding(.top, 1)
-            Group {
-                if ignoreClipboard {
-                    Text("Clipboard ignored — prompt only").foregroundStyle(.secondary)
-                } else if isResolvingContext {
-                    Text(contextIsFromOCR ? "Reading image…" : "Reading clipboard…").foregroundStyle(.secondary)
-                } else if let text = contextText {
-                    Text(maskedPreview(text)).lineLimit(showFullContext ? 6 : 2)
-                } else {
-                    Text("Clipboard empty — type a prompt below").foregroundStyle(.secondary)
+        if !ignoreClipboard, let imgData = contextImageData,
+           let nsImg = NSImage(data: imgData) {
+            // Image context — thumbnail + label
+            HStack(spacing: 10) {
+                Image(nsImage: nsImg)
+                    .resizable().scaledToFit()
+                    .frame(maxWidth: 80, maxHeight: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                VStack(alignment: .leading, spacing: 2) {
+                    Label("Image in clipboard", systemImage: "photo")
+                        .font(.caption).fontWeight(.medium)
+                    Text("No text detected — image sent to vision model")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
+                Spacer()
             }
-            .font(.caption).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(8)
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        } else {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
+                    .foregroundStyle(.secondary).font(.caption).padding(.top, 1)
+                Group {
+                    if ignoreClipboard {
+                        Text("Clipboard ignored — prompt only").foregroundStyle(.secondary)
+                    } else if isResolvingContext {
+                        Text(contextIsFromOCR ? "Reading image…" : "Reading clipboard…").foregroundStyle(.secondary)
+                    } else if let text = contextText {
+                        Text(maskedPreview(text)).lineLimit(showFullContext ? 6 : 2)
+                    } else {
+                        Text("Clipboard empty — type a prompt below").foregroundStyle(.secondary)
+                    }
+                }
+                .font(.caption).frame(maxWidth: .infinity, alignment: .leading)
 
-            if contextText != nil && !isResolvingContext && !ignoreClipboard {
-                Button { withAnimation(.easeInOut(duration: 0.15)) { showFullContext.toggle() } } label: {
-                    Image(systemName: showFullContext ? "eye.slash" : "eye")
-                        .font(.caption).foregroundStyle(.secondary)
+                if contextText != nil && !isResolvingContext && !ignoreClipboard {
+                    Button { withAnimation(.easeInOut(duration: 0.15)) { showFullContext.toggle() } } label: {
+                        Image(systemName: showFullContext ? "eye.slash" : "eye")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain).help(showFullContext ? "Hide content" : "Show content")
                 }
-                .buttonStyle(.plain).help(showFullContext ? "Hide content" : "Show content")
             }
+            .padding(8)
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
         }
-        .padding(8)
-        .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-
     }
 
     private func maskedPreview(_ text: String) -> String {
@@ -513,13 +536,21 @@ struct OverlayView: View {
             switch result {
             case .text(let text, let isOCR):
                 contextText = text
+                contextImageData = nil
                 contextIsFromOCR = isOCR
-                // Auto-enable Load URL when the entire clipboard is a single URL
                 let isPureURL = WebFetcher.isURL(text.trimmingCharacters(in: .whitespacesAndNewlines))
                 loadURLAuto = isPureURL
                 loadURL = isPureURL
+            case .image(let data, let mime):
+                contextText = nil
+                contextImageData = data
+                contextMimeType = mime
+                contextIsFromOCR = false
+                loadURLAuto = false
+                loadURL = false
             case .error:
                 contextText = nil
+                contextImageData = nil
                 loadURLAuto = false
                 loadURL = false
             }
@@ -552,8 +583,10 @@ struct OverlayView: View {
         } else {
             return
         }
+        let imgData = ignoreClipboard ? nil : contextImageData
         engine.run(action: resolved, input: input, recordSession: recordThisSession,
-                   loadURL: loadURL && !ignoreClipboard)
+                   loadURL: loadURL && !ignoreClipboard,
+                   imageData: imgData, imageMimeType: imgData != nil ? contextMimeType : nil)
     }
 
     private func copyResult() {

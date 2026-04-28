@@ -16,14 +16,17 @@ struct AnthropicProvider: LLMProvider {
     }
 
     private var messagesURL: URL? {
-        var base = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        let base = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         if isAzure, let ver = apiVersion {
             return URL(string: "\(base)/v1/messages?api-version=\(ver)")
         }
         return URL(string: "\(base)/v1/messages")
     }
 
-    func stream(systemPrompt: String, userContent: String) -> AsyncThrowingStream<String, Error> {
+    func stream(systemPrompt: String,
+                userContent: String,
+                imageData: Data?,
+                mimeType: String?) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task.detached { [self] in
                 do {
@@ -42,12 +45,31 @@ struct AnthropicProvider: LLMProvider {
                     request.setValue("2023-06-01",       forHTTPHeaderField: "anthropic-version")
                     request.timeoutInterval = 60
 
-                    let body = AnthropicRequest(
-                        model: model, maxTokens: maxTokens,
-                        temperature: min(temperature, 1.0), system: systemPrompt,
-                        messages: [.init(role: "user", content: userContent)]
-                    )
-                    request.httpBody = try JSONEncoder().encode(body)
+                    if let imgData = imageData, let mime = mimeType {
+                        // Multimodal: image block + optional text block
+                        var blocks: [AnthropicContentBlock] = [
+                            .image(data: imgData, mimeType: mime)
+                        ]
+                        if !userContent.isEmpty {
+                            blocks.append(.text(userContent))
+                        }
+                        let body = AnthropicMultimodalRequest(
+                            model: model, maxTokens: maxTokens,
+                            temperature: min(temperature, 1.0),
+                            system: systemPrompt,
+                            messages: [.init(role: "user", content: blocks)]
+                        )
+                        request.httpBody = try JSONEncoder().encode(body)
+                    } else {
+                        // Text-only
+                        let body = AnthropicTextRequest(
+                            model: model, maxTokens: maxTokens,
+                            temperature: min(temperature, 1.0),
+                            system: systemPrompt,
+                            messages: [.init(role: "user", content: userContent)]
+                        )
+                        request.httpBody = try JSONEncoder().encode(body)
+                    }
 
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
                     guard let http = response as? HTTPURLResponse else {
@@ -85,7 +107,9 @@ struct AnthropicProvider: LLMProvider {
     }
 }
 
-private struct AnthropicRequest: Encodable {
+// MARK: - Text-only request
+
+private struct AnthropicTextRequest: Encodable {
     let model: String; let maxTokens: Int; let temperature: Double
     let system: String; let messages: [Message]; let stream = true
     struct Message: Encodable { let role: String; let content: String }
@@ -94,6 +118,51 @@ private struct AnthropicRequest: Encodable {
         case maxTokens = "max_tokens"
     }
 }
+
+// MARK: - Multimodal request
+
+private struct AnthropicMultimodalRequest: Encodable {
+    let model: String; let maxTokens: Int; let temperature: Double
+    let system: String; let messages: [Message]; let stream = true
+    struct Message: Encodable { let role: String; let content: [AnthropicContentBlock] }
+    enum CodingKeys: String, CodingKey {
+        case model, temperature, system, messages, stream
+        case maxTokens = "max_tokens"
+    }
+}
+
+private struct AnthropicContentBlock: Encodable {
+    let type: String
+    // text block
+    var text: String?
+    // image block
+    var source: ImageSource?
+
+    struct ImageSource: Encodable {
+        let type: String        // "base64"
+        let mediaType: String   // e.g. "image/jpeg"
+        let data: String        // base64-encoded bytes
+        enum CodingKeys: String, CodingKey {
+            case type, data
+            case mediaType = "media_type"
+        }
+    }
+
+    static func text(_ t: String) -> AnthropicContentBlock {
+        AnthropicContentBlock(type: "text", text: t, source: nil)
+    }
+
+    static func image(data: Data, mimeType: String) -> AnthropicContentBlock {
+        AnthropicContentBlock(
+            type: "image", text: nil,
+            source: ImageSource(type: "base64", mediaType: mimeType,
+                                data: data.base64EncodedString())
+        )
+    }
+}
+
+// MARK: - Shared response types
+
 private struct AnthropicChunk: Decodable {
     let type: String; let delta: Delta?
     struct Delta: Decodable { let type: String?; let text: String? }
