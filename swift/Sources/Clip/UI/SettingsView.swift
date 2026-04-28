@@ -307,12 +307,14 @@ struct ProviderRow: View {
     @State private var confirmDelete = false
     @State private var testState: ProviderTestState = .idle
     // Editable fields (local state synced with provider binding)
+    @State private var idField = ""
     @State private var keyField = ""
     @State private var keySaved: Bool? = nil
     @State private var urlField = ""
     @State private var modelField = ""
     @State private var deploymentField = ""
     @State private var apiVersionField = ""
+    @State private var orgIdField = ""
 
     private var hasKey: Bool {
         (provider.apiKey?.isEmpty == false) || KeychainStore.hasKey(forProviderID: provider.id)
@@ -360,6 +362,25 @@ struct ProviderRow: View {
             if expanded {
                 VStack(alignment: .leading, spacing: 10) {
                     Divider()
+
+                    // ID (custom string key used in actions)
+                    providerField("ID") {
+                        TextField("provider-id", text: $idField)
+                            .onChange(of: idField) {
+                                let newID = idField.trimmingCharacters(in: .whitespacesAndNewlines)
+                                guard !newID.isEmpty, newID != provider.id else { return }
+                                // Update all actions that reference the old ID
+                                ConfigStore.shared.update { cfg in
+                                    for i in cfg.actions.indices where cfg.actions[i].provider == provider.id {
+                                        cfg.actions[i].provider = newID
+                                    }
+                                }
+                                provider.id = newID
+                                onChange()
+                            }
+                        Text("(používá se jako odkaz v akcích)")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
 
                     // Name
                     providerField("Název") {
@@ -409,6 +430,17 @@ struct ProviderRow: View {
                                 provider.baseURL = urlField.isEmpty ? nil : urlField
                                 onChange()
                             }
+                    }
+
+                    // Organization ID — OpenAI only
+                    if provider.kind == .openai {
+                        providerField("Org ID") {
+                            TextField("org-... (nepovinné)", text: $orgIdField)
+                                .onChange(of: orgIdField) {
+                                    provider.organizationId = orgIdField.isEmpty ? nil : orgIdField
+                                    onChange()
+                                }
+                        }
                     }
 
                     // Model / Deployment name
@@ -484,11 +516,13 @@ struct ProviderRow: View {
     }
 
     private func syncFields() {
+        idField         = provider.id
         keyField        = provider.apiKey ?? (try? KeychainStore.load(forProviderID: provider.id)) ?? ""
         urlField        = provider.baseURL ?? ""
         modelField      = provider.model ?? ""
         deploymentField = provider.deploymentName ?? ""
         apiVersionField = provider.apiVersion ?? ""
+        orgIdField      = provider.organizationId ?? ""
     }
 
     private func saveKey() {

@@ -92,6 +92,22 @@ struct OverlayView: View {
             }
             if shouldCopyClose { copyResult(); close() }
         }
+        .onChange(of: recordThisSession) { _, record in
+            // If the user turns Record ON after the output already arrived, save now
+            guard record, !engine.result.isEmpty, let action = lastAction else { return }
+            let cfg = ConfigStore.shared.config
+            let prov = cfg.providers.first(where: { $0.id == action.provider })
+            let providerName = prov?.name ?? action.provider
+            let model = action.model.isEmpty ? (prov?.model ?? "") : action.model
+            SessionStore.shared.save(
+                agent: action.name,
+                provider: providerName,
+                model: model,
+                input: currentInput,
+                output: engine.result,
+                duration: 0
+            )
+        }
         .onKeyPress(.escape) { close(); return .handled }
         .onKeyPress { press in
             guard !promptFocused,
