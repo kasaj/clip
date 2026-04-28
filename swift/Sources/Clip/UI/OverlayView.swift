@@ -276,12 +276,18 @@ struct OverlayView: View {
         .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
         .clipShape(RoundedRectangle(cornerRadius: 6))
 
-        // Accessibility permission warning (needed for text selection capture)
+        // Accessibility permission warning (needed for AX text-selection capture)
+        // Note: after each app update the TCC entry may become stale — toggle off/on fixes it.
         if !axTrusted {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.lock.fill").foregroundStyle(.orange).font(.caption)
-                Text("Grant **Accessibility** permission in System Settings → Privacy → Accessibility so Clip can capture selected text.")
-                    .font(.caption2).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Accessibility permission missing — selected text won't be captured via AX.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    Text("If already granted: toggle OFF → ON in System Settings and restart Clip.")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
+                Spacer()
                 Button("Open Settings") {
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
                 }
@@ -459,7 +465,6 @@ struct OverlayView: View {
                     Button(didCopy ? "Copied ✓" : "Copy") { copyResult() }
                         .keyboardShortcut("c", modifiers: .command)
                     Spacer()
-                    Button("Close") { close() }
                 }
             }
         }

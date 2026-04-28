@@ -21,18 +21,16 @@ final class OverlayWindowController: NSObject {
             panel?.center()
         }
 
-        // ① Capture which app is currently frontmost (before Clip activates)
-        let targetPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
-
-        // ② Try Accessibility API first — reads selected text without a keyboard event.
-        //    Only works when Accessibility permission is granted, but is instant & reliable.
+        // ① Try Accessibility API first — synchronous, no keyboard event needed.
+        //    Works when Accessibility permission is granted AND the source app supports AX.
         if let selectedText = ContextResolver.captureSelectedText(), !selectedText.isEmpty {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(selectedText, forType: .string)
         } else {
-            // ③ Fallback: simulate ⌘C targeted at the source app PID.
-            //    If nothing is selected the clipboard stays unchanged — that's correct.
-            simulateCopy(toPID: targetPID)
+            // ② Inject ⌘C into the HID stream via .cghidEventTap — no Accessibility needed.
+            //    Source app is still frontmost so it receives the event naturally.
+            //    If nothing is selected the app ignores Cmd+C and clipboard stays unchanged.
+            simulateCopy()
         }
 
         Task { @MainActor in
@@ -52,22 +50,17 @@ final class OverlayWindowController: NSObject {
 
     // MARK: - Private
 
-    /// Post ⌘C to a specific PID so it goes to the right app even if
-    /// CGEvent routing has already shifted.
-    private func simulateCopy(toPID pid: pid_t?) {
+    /// Simulate ⌘C by injecting into the HID event stream.
+    /// Using .cghidEventTap (not postToPid) so it works without Accessibility permission —
+    /// the source app is still frontmost when this is called, so it receives the event.
+    private func simulateCopy() {
         let src = CGEventSource(stateID: .hidSystemState)
         let down = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: true)  // 'c'
         down?.flags = .maskCommand
         let up = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: false)
         up?.flags = .maskCommand
-
-        if let pid {
-            down?.postToPid(pid)
-            up?.postToPid(pid)
-        } else {
-            down?.post(tap: .cghidEventTap)
-            up?.post(tap: .cghidEventTap)
-        }
+        down?.post(tap: .cghidEventTap)
+        up?.post(tap: .cghidEventTap)
     }
 
     private func makePanel() -> NSPanel {
