@@ -158,22 +158,36 @@ struct OverlayView: View {
         VStack(spacing: 0) {
             headerBar
             Divider()
-            if showHistory { historyPanel; Divider() }
-            // Input section — natural height, scrolls only when necessary
+            // Input section — natural height, yields space to output
             VStack(alignment: .leading, spacing: 10) {
                 contextPreview
+                // Clipboard full content — outside @ViewBuilder so SwiftUI sees the toggle reliably
+                if showFullContext, let text = contextText, !ignoreClipboard {
+                    ScrollView {
+                        Text(text)
+                            .textSelection(.enabled)
+                            .font(.caption)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(6)
+                    }
+                    .frame(maxHeight: 160)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
                 promptField
                 optionCheckboxes
+                // History panel — inline, above action buttons
+                if showHistory { historyPanel }
                 actionButtons
             }
             .padding(16)
-            .layoutPriority(0)   // yields space to output when window is small
+            .layoutPriority(0)
             Divider()
-            // Output section — guaranteed minimum height, always visible
+            // Output section — always visible
             resultArea
                 .padding(16)
                 .frame(minHeight: 200, maxHeight: .infinity)
-                .layoutPriority(1)   // output gets space first
+                .layoutPriority(1)
         }
     }
 
@@ -222,20 +236,6 @@ struct OverlayView: View {
             Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")
                 .font(.caption2).foregroundStyle(.tertiary)
             Spacer()
-            if ConfigStore.shared.config.historyLimit > 0 {
-                Button { showHistory.toggle() } label: {
-                    Image(systemName: showHistory ? "clock.fill" : "clock")
-                        .foregroundStyle(showHistory ? .primary : .secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            Button {
-                (NSApp.delegate as? AppDelegate)?.openSettings()
-            } label: {
-                Image(systemName: "gearshape").foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            // Always-visible close button — red so it's easy to spot
             Button(action: close) {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundStyle(.red)
@@ -282,12 +282,14 @@ struct OverlayView: View {
                                     .help("Open session log (\(url.lastPathComponent))")
                                 }
                             }
-                            .padding(.horizontal, 16).padding(.vertical, 8)
+                            .padding(.horizontal, 8).padding(.vertical, 6)
                             Divider()
                         }
                     }
                 }
-                .frame(maxHeight: 180)
+                .frame(maxHeight: 140)
+                .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             }
         }
     }
@@ -320,15 +322,11 @@ struct OverlayView: View {
         } else if isResolvingContext {
             statusRow(contextIsFromOCR ? "Reading image…" : "Reading clipboard…", icon: "ellipsis")
         } else if let text = contextText {
-            // Clipboard preview — hidden by default, eye shows full content
+            // Clipboard header row — ScrollView is rendered by overlayContent directly
             HStack(spacing: 6) {
                 Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
                     .font(.caption2).foregroundStyle(.secondary)
-                if showFullContext {
-                    Text("Clipboard").font(.caption2).foregroundStyle(.secondary)
-                } else {
-                    Text("Clipboard — \(text.count) chars").font(.caption2).foregroundStyle(.secondary)
-                }
+                Text("Clipboard — \(text.count) chars").font(.caption2).foregroundStyle(.secondary)
                 Spacer()
                 Button {
                     showFullContext.toggle()
@@ -342,19 +340,6 @@ struct OverlayView: View {
             .padding(8)
             .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
             .clipShape(RoundedRectangle(cornerRadius: 6))
-
-            if showFullContext {
-                ScrollView {
-                    Text(text)
-                        .textSelection(.enabled)
-                        .font(.caption)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(6)
-                }
-                .frame(maxHeight: 160)
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
         } else {
             statusRow("Clipboard empty — type a prompt below", icon: "doc.on.clipboard")
         }
@@ -465,6 +450,18 @@ struct OverlayView: View {
             }
 
             Spacer()
+
+            // History button — right-aligned, blue when has entries
+            if ConfigStore.shared.config.historyLimit > 0 {
+                let hasHistory = !history.entries.isEmpty
+                Button { showHistory.toggle() } label: {
+                    Image(systemName: showHistory ? "clock.fill" : "clock")
+                        .font(.caption2)
+                        .foregroundStyle(showHistory ? Color.accentColor : hasHistory ? Color.accentColor : Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(showHistory ? "Hide history" : "Show history")
+            }
         }
     }
 
