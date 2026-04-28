@@ -243,6 +243,10 @@ struct OverlayView: View {
 
     // MARK: - Context preview
 
+    /// True when the app has Accessibility permission (needed for text capture).
+    private var axTrusted: Bool { AXIsProcessTrusted() }
+
+    @ViewBuilder
     private var contextPreview: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
@@ -271,6 +275,22 @@ struct OverlayView: View {
         .padding(8)
         .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
         .clipShape(RoundedRectangle(cornerRadius: 6))
+
+        // Accessibility permission warning (needed for text selection capture)
+        if !axTrusted {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.lock.fill").foregroundStyle(.orange).font(.caption)
+                Text("Grant **Accessibility** permission in System Settings → Privacy → Accessibility so Clip can capture selected text.")
+                    .font(.caption2).foregroundStyle(.secondary)
+                Button("Open Settings") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                }
+                .font(.caption2)
+            }
+            .padding(6)
+            .background(Color.orange.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
     }
 
     private func maskedPreview(_ text: String) -> String {

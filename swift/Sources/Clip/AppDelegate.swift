@@ -11,6 +11,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyState = HotkeyState.shared
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Request Accessibility permission — required for:
+        //   • reading selected text via AX API (kAXSelectedTextAttribute)
+        //   • sending synthetic Cmd+C via CGEvent.postToPid(_:)
+        // Use the raw string key to avoid Swift 6 concurrency warnings on the CFString global.
+        if !AXIsProcessTrusted() {
+            AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+        }
+
         setupStatusBarItem()
         hotkeyManager = HotkeyManager { [weak self] in
             Task { @MainActor in self?.showOverlay() }

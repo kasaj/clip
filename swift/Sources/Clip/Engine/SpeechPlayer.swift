@@ -31,26 +31,22 @@ final class SpeechPlayer: NSObject, ObservableObject, AVSpeechSynthesizerDelegat
     }
 
     // MARK: - Voice selection
-    // Priority: premium (macOS 13+ Siri-HD) → enhanced → default for the UI language.
-    // Falls back to Czech, then English.
+    // Always tries Czech first (the app is Czech-first), regardless of the
+    // macOS UI language. Within each language: premium (3) → enhanced (2) → default (1).
+    // If no Czech voice is installed, falls back to the UI-language voice.
 
     private func bestVoice() -> AVSpeechSynthesisVoice? {
-        let langCode = Locale.current.language.languageCode?.identifier ?? "cs"
         let all = AVSpeechSynthesisVoice.speechVoices()
+        let systemCode = Locale.current.language.languageCode?.identifier ?? "en"
 
-        // rawValue 3 = .premium (macOS 13+), 2 = .enhanced, 1 = .default
-        for minQuality in [3, 2, 1] {
-            if let v = all.first(where: {
-                $0.language.hasPrefix(langCode) && $0.quality.rawValue >= minQuality
-            }) { return v }
+        // Language priority: Czech first, then whatever macOS UI is set to
+        for langCode in ["cs", systemCode, "en"] {
+            for minQuality in [3, 2, 1] {          // premium → enhanced → default
+                if let v = all.first(where: {
+                    $0.language.hasPrefix(langCode) && $0.quality.rawValue >= minQuality
+                }) { return v }
+            }
         }
-        // Czech fallback (if UI language isn't Czech)
-        for minQuality in [3, 2, 1] {
-            if let v = all.first(where: {
-                $0.language.hasPrefix("cs") && $0.quality.rawValue >= minQuality
-            }) { return v }
-        }
-        // Last resort
         return AVSpeechSynthesisVoice(language: "en-US")
     }
 }
