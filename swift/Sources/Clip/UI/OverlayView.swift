@@ -268,13 +268,13 @@ struct OverlayView: View {
                 Text("Clipboard — \(text.count) chars").font(.caption2).foregroundStyle(.secondary)
                 Spacer()
                 Button {
-                    PopupWindowManager.showClipboard(text: text)
+                    PopupWindowManager.toggleClipboard(text: text)
                 } label: {
-                    Image(systemName: "eye")
+                    Image(systemName: PopupWindowManager.isClipboardVisible ? "eye.slash" : "eye")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Show clipboard content")
+                .help(PopupWindowManager.isClipboardVisible ? "Hide clipboard" : "Show clipboard content")
             }
             .padding(8)
             .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
@@ -386,15 +386,16 @@ struct OverlayView: View {
             // History button — right after OCR, same caption style, blue when has entries
             if ConfigStore.shared.config.historyLimit > 0 {
                 let hasHistory = !history.entries.isEmpty
+                let histOpen = PopupWindowManager.isHistoryVisible
                 Button {
-                    PopupWindowManager.showHistory()
+                    PopupWindowManager.toggleHistory()
                 } label: {
-                    Label("History", systemImage: hasHistory ? "clock.fill" : "clock")
+                    Label("History", systemImage: histOpen ? "clock.badge.xmark" : (hasHistory ? "clock.fill" : "clock"))
                         .font(.caption2)
-                        .foregroundStyle(hasHistory ? Color.accentColor : Color.secondary)
+                        .foregroundStyle(histOpen || hasHistory ? Color.accentColor : Color.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Show history")
+                .help(histOpen ? "Hide history" : "Show history")
             }
 
             if speech.isSpeaking {
@@ -651,9 +652,18 @@ enum PopupWindowManager {
     private static var clipboardPanel: NSPanel?
     private static var historyPanel: NSPanel?
 
-    /// Delegate that intercepts the red-X close button and hides the panel
-    /// instead of closing it, preventing the app from quitting.
-    private static let hideOnCloseDelegate = HideOnCloseDelegate()
+    static var isClipboardVisible: Bool { clipboardPanel?.isVisible ?? false }
+    static var isHistoryVisible:   Bool { historyPanel?.isVisible  ?? false }
+
+    static func toggleClipboard(text: String) {
+        if clipboardPanel?.isVisible == true { closeClipboard(); return }
+        showClipboard(text: text)
+    }
+
+    static func toggleHistory() {
+        if historyPanel?.isVisible == true { closeHistory(); return }
+        showHistory()
+    }
 
     static func showClipboard(text: String) {
         // Reuse existing panel; always update content so fresh text is shown.
@@ -677,41 +687,31 @@ enum PopupWindowManager {
         historyPanel?.makeKeyAndOrderFront(nil)
     }
 
-    static func closeHistory() {
-        historyPanel?.orderOut(nil)
-    }
+    static func closeClipboard() { clipboardPanel?.orderOut(nil) }
+    static func closeHistory()   { historyPanel?.orderOut(nil) }
 
     static func closeAll() {
         clipboardPanel?.orderOut(nil)
         historyPanel?.orderOut(nil)
     }
 
-    /// Creates a floating NSPanel that hides (rather than closes) when the user clicks the red X.
+    /// Creates a floating NSPanel WITHOUT a close button — popup is dismissed
+    /// only via the button that opened it or Escape, so the red-X crash cannot occur.
     private static func makePopupPanel(title: String, width: CGFloat, height: CGFloat) -> NSPanel {
         let w = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            styleMask: [.titled, .resizable],   // no .closable — no red X
             backing: .buffered, defer: false
         )
         w.title = title
         w.level = .floating
         w.isRestorable = false
-        w.isReleasedWhenClosed = false   // never deallocate on close
-        w.delegate = hideOnCloseDelegate
+        w.isReleasedWhenClosed = false
         w.center()
         return w
     }
 }
 
-/// NSWindowDelegate that intercepts windowShouldClose so the red X button
-/// hides the popup panel instead of destroying it (which would trigger
-/// app termination in an LSUIElement app).
-private class HideOnCloseDelegate: NSObject, NSWindowDelegate {
-    func windowShouldClose(_ sender: NSWindow) -> Bool {
-        sender.orderOut(nil)
-        return false   // cancel the close — panel stays alive
-    }
-}
 
 // MARK: - Clipboard Preview Window
 
@@ -736,6 +736,7 @@ private struct ClipboardPreviewWindowView: View {
             }
         }
         .frame(minWidth: 400, minHeight: 200)
+        .onKeyPress(.escape) { PopupWindowManager.closeClipboard(); return .handled }
     }
 }
 
@@ -773,6 +774,7 @@ private struct HistoryWindowView: View {
             }
         }
         .frame(minWidth: 380, minHeight: 200)
+        .onKeyPress(.escape) { PopupWindowManager.closeHistory(); return .handled }
     }
 }
 
