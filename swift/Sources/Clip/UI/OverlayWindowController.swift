@@ -57,6 +57,7 @@ final class OverlayWindowController: NSObject {
         panel.standardWindowButton(.zoomButton)?.isHidden = true
 
         let view = OverlayView(state: state, onClose: { [weak self] in self?.hideOverlay() })
+            .ignoresSafeArea()
         panel.contentView = NSHostingView(rootView: view)
         return panel
     }
