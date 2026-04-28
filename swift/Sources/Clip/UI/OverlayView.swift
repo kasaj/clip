@@ -101,11 +101,25 @@ struct OverlayView: View {
         }
     }
 
-    // MARK: - Close (always stops speech)
+    // MARK: - Close (stops speech + resets transient state)
 
     private func close() {
         SpeechPlayer.shared.stop()
+        resetTransientState()
         onClose()
+    }
+
+    /// Clear per-session inputs so the overlay looks fresh next time.
+    /// Record follows the global setting; other checkboxes reset to off.
+    private func resetTransientState() {
+        userPrompt = ""
+        ignoreClipboard = false
+        readOutput = false
+        recordThisSession = ConfigStore.shared.config.recordSessions
+        showHistory = false
+        shownHistoryResult = nil
+        showingSettings = false
+        engine.reset()
     }
 
     // MARK: - Overlay content
@@ -243,9 +257,6 @@ struct OverlayView: View {
 
     // MARK: - Context preview
 
-    /// True when the app has Accessibility permission (needed for text capture).
-    private var axTrusted: Bool { AXIsProcessTrusted() }
-
     @ViewBuilder
     private var contextPreview: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -276,27 +287,6 @@ struct OverlayView: View {
         .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
         .clipShape(RoundedRectangle(cornerRadius: 6))
 
-        // Accessibility permission warning (needed for AX text-selection capture)
-        // Note: after each app update the TCC entry may become stale — toggle off/on fixes it.
-        if !axTrusted {
-            HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.lock.fill").foregroundStyle(.orange).font(.caption)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Accessibility permission missing — selected text won't be captured via AX.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    Text("If already granted: toggle OFF → ON in System Settings and restart Clip.")
-                        .font(.caption2).foregroundStyle(.tertiary)
-                }
-                Spacer()
-                Button("Open Settings") {
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-                }
-                .font(.caption2)
-            }
-            .padding(6)
-            .background(Color.orange.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-        }
     }
 
     private func maskedPreview(_ text: String) -> String {
@@ -462,9 +452,9 @@ struct OverlayView: View {
                 .background(Color(nsColor: .textBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 HStack {
+                    Spacer()
                     Button(didCopy ? "Copied ✓" : "Copy") { copyResult() }
                         .keyboardShortcut("c", modifiers: .command)
-                    Spacer()
                 }
             }
         }

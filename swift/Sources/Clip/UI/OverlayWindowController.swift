@@ -21,26 +21,11 @@ final class OverlayWindowController: NSObject {
             panel?.center()
         }
 
-        // ① Try Accessibility API first — synchronous, no keyboard event needed.
-        //    Works when Accessibility permission is granted AND the source app supports AX.
-        if let selectedText = ContextResolver.captureSelectedText(), !selectedText.isEmpty {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(selectedText, forType: .string)
-        } else {
-            // ② Inject ⌘C into the HID stream via .cghidEventTap — no Accessibility needed.
-            //    Source app is still frontmost so it receives the event naturally.
-            //    If nothing is selected the app ignores Cmd+C and clipboard stays unchanged.
-            simulateCopy()
-        }
-
-        Task { @MainActor in
-            // ④ Give the source app ~150 ms to process the copy event
-            try? await Task.sleep(nanoseconds: 150_000_000)
-            // ⑤ Now activate Clip so buttons, keyboard focus, etc. all work
-            NSApp.activate(ignoringOtherApps: true)
-            state.triggerRefresh()
-            self.panel?.makeKeyAndOrderFront(nil)
-        }
+        // Activate Clip and refresh the overlay — clipboard is read as-is.
+        // No Cmd+C simulation; the user copies text manually before invoking Clip.
+        NSApp.activate(ignoringOtherApps: true)
+        state.triggerRefresh()
+        panel?.makeKeyAndOrderFront(nil)
     }
 
     func hideOverlay() {
@@ -49,19 +34,6 @@ final class OverlayWindowController: NSObject {
     }
 
     // MARK: - Private
-
-    /// Simulate ⌘C by injecting into the HID event stream.
-    /// Using .cghidEventTap (not postToPid) so it works without Accessibility permission —
-    /// the source app is still frontmost when this is called, so it receives the event.
-    private func simulateCopy() {
-        let src = CGEventSource(stateID: .hidSystemState)
-        let down = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: true)  // 'c'
-        down?.flags = .maskCommand
-        let up = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: false)
-        up?.flags = .maskCommand
-        down?.post(tap: .cghidEventTap)
-        up?.post(tap: .cghidEventTap)
-    }
 
     private func makePanel() -> NSPanel {
         let panel = NSPanel(
