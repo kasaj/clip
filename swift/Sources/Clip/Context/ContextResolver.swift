@@ -10,8 +10,8 @@ enum ContextError: Error, LocalizedError {
     case empty, ocrFailed
     var errorDescription: String? {
         switch self {
-        case .empty:     "Zkopíruj text nebo obrázek do schránky (⌘C)"
-        case .ocrFailed: "Text nebyl rozpoznán"
+        case .empty:     "Clipboard is empty — copy text or an image first"
+        case .ocrFailed: "Could not recognise text in image"
         }
     }
 }

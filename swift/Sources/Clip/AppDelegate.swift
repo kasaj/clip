@@ -94,9 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func showOverlay() {
         if overlayWindowController == nil {
-            let controller = OverlayWindowController()
-            controller.onOpenSettings = { [weak self] in self?.openSettings() }
-            overlayWindowController = controller
+            overlayWindowController = OverlayWindowController()
         }
         overlayWindowController?.showOverlay()
     }

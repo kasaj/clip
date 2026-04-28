@@ -7,15 +7,19 @@ enum ProviderFactory {
     static func make(for action: Action) throws -> any LLMProvider {
         let config = ConfigStore.shared.config
 
-        // Action has no provider assigned yet
-        guard !action.provider.isEmpty else {
-            throw LLMError.missingAPIKey("Akce nemá přiřazeného providera — nastav ho v Nastavení → Akce")
-        }
-
-        // Look up provider by UUID
-        guard let uuid = UUID(uuidString: action.provider),
-              let provider = config.providers.first(where: { $0.id == uuid }) else {
-            throw LLMError.missingAPIKey("Provider nenalezen — zkontroluj nastavení akce nebo přidej provider v Nastavení → Providery")
+        // Resolve provider: use action's assigned provider, or auto-pick if exactly one exists
+        let provider: Provider
+        if !action.provider.isEmpty,
+           let uuid = UUID(uuidString: action.provider),
+           let found = config.providers.first(where: { $0.id == uuid }) {
+            provider = found
+        } else if config.providers.count == 1 {
+            // Convenience: auto-assign when there's exactly one provider
+            provider = config.providers[0]
+        } else if config.providers.isEmpty {
+            throw LLMError.missingAPIKey("No providers configured — add one in Settings → Providers")
+        } else {
+            throw LLMError.missingAPIKey("No provider assigned — open Settings → Actions and pick a provider for this action")
         }
 
         return try makeProvider(provider: provider, model: action.model,
