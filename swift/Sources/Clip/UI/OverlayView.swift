@@ -10,7 +10,6 @@ struct OverlayView: View {
 
     // Context
     @State private var contextText: String?
-    @State private var contextError: String?
     @State private var isResolvingContext = false
     @State private var contextIsFromOCR = false
     @State private var showFullContext = false
@@ -18,6 +17,7 @@ struct OverlayView: View {
     // Prompt / options
     @State private var userPrompt: String = ""
     @FocusState private var promptFocused: Bool
+    @State private var ignoreClipboard = false   // skip clipboard; prompt-only mode
     @State private var recordThisSession = false
     @State private var readOutput = false
 
@@ -37,6 +37,7 @@ struct OverlayView: View {
 
     private var actions: [Action] { ConfigStore.shared.actions.filter(\.enabled) }
     private var hasSessionFolder: Bool { SessionStore.shared.sessionDirectory() != nil }
+    private var effectiveContext: String? { ignoreClipboard ? nil : contextText }
     private var displayedResult: String? {
         shownHistoryResult ?? (engine.result.isEmpty ? nil : engine.result)
     }
@@ -46,7 +47,7 @@ struct OverlayView: View {
     }
     private var hasResult: Bool { displayedResult != nil || engine.errorMessage != nil }
     private var canRun: Bool {
-        !engine.isLoading && (contextText != nil || !userPrompt.isEmpty)
+        !engine.isLoading && (effectiveContext != nil || !userPrompt.isEmpty)
     }
 
     var body: some View {
@@ -59,8 +60,14 @@ struct OverlayView: View {
         }
         .frame(minWidth: 520, idealWidth: 660, maxWidth: .infinity,
                minHeight: 320, idealHeight: 500, maxHeight: .infinity)
-        .onAppear { resolveContext() }
-        .onChange(of: state.refreshID) { resolveContext() }
+        .onAppear {
+            recordThisSession = ConfigStore.shared.config.recordSessions
+            resolveContext()
+        }
+        .onChange(of: state.refreshID) {
+            recordThisSession = ConfigStore.shared.config.recordSessions
+            resolveContext()
+        }
         .onChange(of: engine.isLoading) { _, loading in
             guard !loading, engine.errorMessage == nil, !engine.result.isEmpty else { return }
             let sessionURL = engine.lastSessionURL
@@ -76,9 +83,9 @@ struct OverlayView: View {
             case .never:   shouldCopyClose = false
             default:       shouldCopyClose = ConfigStore.shared.config.autoCopyAndClose
             }
-            if shouldCopyClose { copyResult(); onClose() }
+            if shouldCopyClose { copyResult(); close() }
         }
-        .onKeyPress(.escape) { onClose(); return .handled }
+        .onKeyPress(.escape) { close(); return .handled }
         .onKeyPress { press in
             guard !promptFocused,
                   let digit = Int(press.characters),
@@ -92,6 +99,13 @@ struct OverlayView: View {
                 ConfigStore.shared.update { $0.actions = ConfigStore.shared.config.actions }
             }
         }
+    }
+
+    // MARK: - Close (always stops speech)
+
+    private func close() {
+        SpeechPlayer.shared.stop()
+        onClose()
     }
 
     // MARK: - Overlay content
@@ -116,13 +130,13 @@ struct OverlayView: View {
                 resultArea.padding(16)
             }
         }
-        .background(.regularMaterial)
     }
 
     // MARK: - Inline settings wrapper
 
     private var settingsWrapper: some View {
         VStack(spacing: 0) {
+            // Settings header with Back + X
             HStack {
                 Button {
                     withAnimation(.easeInOut(duration: 0.15)) { showingSettings = false }
@@ -136,9 +150,11 @@ struct OverlayView: View {
                 Spacer()
                 Text("Settings").font(.headline)
                 Spacer()
-                Button(action: onClose) {
+                // Always-visible close button
+                Button(action: close) {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                }.buttonStyle(.plain)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
             Divider()
@@ -168,7 +184,8 @@ struct OverlayView: View {
                 Image(systemName: "gearshape").foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            Button(action: onClose) {
+            // Always-visible close button
+            Button(action: close) {
                 Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -228,18 +245,19 @@ struct OverlayView: View {
             Image(systemName: contextIsFromOCR ? "doc.viewfinder" : "doc.on.clipboard")
                 .foregroundStyle(.secondary).font(.caption).padding(.top, 1)
             Group {
-                if isResolvingContext {
-                    Text(contextIsFromOCR ? "Reading image…" : "Reading clipboard…")
-                        .foregroundStyle(.secondary)
+                if ignoreClipboard {
+                    Text("Clipboard ignored — prompt only").foregroundStyle(.secondary)
+                } else if isResolvingContext {
+                    Text(contextIsFromOCR ? "Reading image…" : "Reading clipboard…").foregroundStyle(.secondary)
                 } else if let text = contextText {
                     Text(maskedPreview(text)).lineLimit(showFullContext ? 6 : 2)
                 } else {
-                    Text("Clipboard is empty — type a prompt below").foregroundStyle(.secondary)
+                    Text("Clipboard empty — type a prompt below").foregroundStyle(.secondary)
                 }
             }
             .font(.caption).frame(maxWidth: .infinity, alignment: .leading)
 
-            if contextText != nil && !isResolvingContext {
+            if contextText != nil && !isResolvingContext && !ignoreClipboard {
                 Button { withAnimation(.easeInOut(duration: 0.15)) { showFullContext.toggle() } } label: {
                     Image(systemName: showFullContext ? "eye.slash" : "eye")
                         .font(.caption).foregroundStyle(.secondary)
@@ -292,6 +310,14 @@ struct OverlayView: View {
                 .help("Save input and output to session log")
             }
 
+            Toggle(isOn: $ignoreClipboard) {
+                Label("Ignore clipboard", systemImage: "doc.on.clipboard.fill")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            .toggleStyle(.checkbox)
+            .help("Skip clipboard; run agent with prompt only")
+            .onChange(of: ignoreClipboard) { _, _ in showFullContext = false }
+
             Toggle(isOn: $readOutput) {
                 Label("Read aloud", systemImage: "speaker.wave.2")
                     .font(.caption2).foregroundStyle(.secondary)
@@ -312,8 +338,8 @@ struct OverlayView: View {
 
     private var actionButtons: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // URL hint (left-aligned)
-            if let text = contextText,
+            // URL hint
+            if !ignoreClipboard, let text = contextText,
                WebFetcher.isURL(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
                 HStack(spacing: 6) {
                     Image(systemName: "globe").font(.caption2).foregroundStyle(.blue)
@@ -329,7 +355,7 @@ struct OverlayView: View {
                 .padding(.bottom, 2)
             }
 
-            if contextIsFromOCR {
+            if contextIsFromOCR && !ignoreClipboard {
                 actionButton(title: "Recognise text (OCR)", missingKey: false, isRunning: false, keyHint: nil) {
                     if let text = contextText { engine.showText(text) }
                 }
@@ -394,9 +420,7 @@ struct OverlayView: View {
                 HStack(spacing: 8) {
                     if let action = lastAction { Button("Retry") { runAction(action) } }
                     if isMissingKeyError {
-                        Button("Settings") {
-                            withAnimation { showingSettings = true }
-                        }
+                        Button("Settings") { withAnimation { showingSettings = true } }
                     }
                 }
                 Spacer()
@@ -412,7 +436,7 @@ struct OverlayView: View {
                     Button(didCopy ? "Copied ✓" : "Copy") { copyResult() }
                         .keyboardShortcut("c", modifiers: .command)
                     Spacer()
-                    Button("Close") { onClose() }
+                    Button("Close") { close() }
                 }
             }
         }
@@ -420,10 +444,9 @@ struct OverlayView: View {
 
     // MARK: - Helpers
 
-    private var currentInput: String { contextText ?? userPrompt }
+    private var currentInput: String { effectiveContext ?? userPrompt }
 
     private func hasKey(for action: Action) -> Bool {
-        // Check if a provider can be resolved (single provider auto-assign or explicit)
         let config = ConfigStore.shared.config
         if !action.provider.isEmpty,
            let uuid = UUID(uuidString: action.provider),
@@ -450,12 +473,10 @@ struct OverlayView: View {
         engine.reset()
         speech.stop()
         contextText = nil
-        contextError = nil
         didCopy = false
         shownHistoryResult = nil
         showHistory = false
         showFullContext = false
-        recordThisSession = false
 
         isResolvingContext = true
         let pb = NSPasteboard.general
@@ -484,7 +505,7 @@ struct OverlayView: View {
         resolved.systemPrompt = resolveVariables(in: action.systemPrompt)
 
         let input: String
-        if let text = contextText, !text.isEmpty {
+        if let text = effectiveContext, !text.isEmpty {
             if !userPrompt.isEmpty && !action.systemPrompt.contains("{{kontext}}") {
                 input = text + "\n\n---\n" + userPrompt
             } else {

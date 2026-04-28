@@ -15,12 +15,8 @@ final class SpeechPlayer: NSObject, ObservableObject, AVSpeechSynthesizerDelegat
     func speak(_ text: String) {
         synthesizer.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: text)
-        // Prefer current locale; fall back to Czech
-        let langCode = Locale.current.language.languageCode?.identifier ?? "cs"
-        utterance.voice = AVSpeechSynthesisVoice(language: langCode)
-            ?? AVSpeechSynthesisVoice(language: "cs-CZ")
-            ?? AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = 0.50
+        utterance.voice = bestVoice()
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         synthesizer.speak(utterance)
         isSpeaking = true
     }
@@ -32,5 +28,28 @@ final class SpeechPlayer: NSObject, ObservableObject, AVSpeechSynthesizerDelegat
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor in isSpeaking = false }
+    }
+
+    // MARK: - Voice selection
+    // Prefers enhanced (Siri-quality) voice for the current UI language,
+    // falls back to any voice for that language, then English.
+
+    private func bestVoice() -> AVSpeechSynthesisVoice? {
+        let langCode = Locale.current.language.languageCode?.identifier ?? "cs"
+
+        let all = AVSpeechSynthesisVoice.speechVoices()
+
+        // 1. Enhanced quality for current language
+        if let v = all.first(where: { $0.language.hasPrefix(langCode) && $0.quality == .enhanced }) {
+            return v
+        }
+        // 2. Any quality for current language
+        if let v = all.first(where: { $0.language.hasPrefix(langCode) }) {
+            return v
+        }
+        // 3. Czech fallback
+        if let v = all.first(where: { $0.language.hasPrefix("cs") }) { return v }
+        // 4. English fallback
+        return AVSpeechSynthesisVoice(language: "en-US")
     }
 }

@@ -20,33 +20,46 @@ final class OverlayWindowController: NSObject {
             panel = makePanel()
             panel?.center()
         }
-        // Simulate ⌘C so selected text lands in clipboard before the panel appears.
-        // If clipboard changes → ContextResolver picks up the new content.
-        // If nothing was selected → clipboard stays unchanged, old content is used.
-        simulateCopy()
+
+        // ① Capture which app is currently frontmost (before Clip activates)
+        let targetPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+
+        // ② Simulate ⌘C → sends to source app while it still has focus
+        simulateCopy(toPID: targetPID)
 
         Task { @MainActor in
-            // Give the source app ~130 ms to process the copy event
-            try? await Task.sleep(nanoseconds: 130_000_000)
+            // ③ Give the source app ~150 ms to process the copy event
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            // ④ Now activate Clip so buttons, keyboard focus, etc. all work
+            NSApp.activate(ignoringOtherApps: true)
             state.triggerRefresh()
             self.panel?.makeKeyAndOrderFront(nil)
         }
     }
 
     func hideOverlay() {
+        SpeechPlayer.shared.stop()
         panel?.orderOut(nil)
     }
 
     // MARK: - Private
 
-    private func simulateCopy() {
+    /// Post ⌘C to a specific PID so it goes to the right app even if
+    /// CGEvent routing has already shifted.
+    private func simulateCopy(toPID pid: pid_t?) {
         let src = CGEventSource(stateID: .hidSystemState)
         let down = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: true)  // 'c'
         down?.flags = .maskCommand
         let up = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: false)
         up?.flags = .maskCommand
-        down?.post(tap: .cghidEventTap)
-        up?.post(tap: .cghidEventTap)
+
+        if let pid {
+            down?.postToPid(pid)
+            up?.postToPid(pid)
+        } else {
+            down?.post(tap: .cghidEventTap)
+            up?.post(tap: .cghidEventTap)
+        }
     }
 
     private func makePanel() -> NSPanel {
@@ -62,6 +75,7 @@ final class OverlayWindowController: NSObject {
         panel.titleVisibility = .hidden
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.appearance = nil   // follow system light/dark mode
 
         let view = OverlayView(state: state, onClose: { [weak self] in self?.hideOverlay() })
         panel.contentView = NSHostingView(rootView: view)

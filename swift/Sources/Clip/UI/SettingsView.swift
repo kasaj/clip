@@ -19,7 +19,8 @@ struct SettingsView: View {
             actionsTab.tabItem { Label("Akce", systemImage: "list.bullet") }
             providersTab.tabItem { Label("Providery", systemImage: "key") }
         }
-        .frame(width: 700, height: 580)
+        .frame(minWidth: 600, idealWidth: 700, maxWidth: .infinity,
+               minHeight: 480, idealHeight: 580, maxHeight: .infinity)
         .onAppear { launchAtLogin = SMAppService.mainApp.status == .enabled }
         .sheet(item: $reviewingProvider) { provider in
             ModelReviewSheet(provider: provider, models: $reviewModels) { saved in
