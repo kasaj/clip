@@ -397,37 +397,36 @@ struct ProviderRow: View {
                         }
                     }
 
-                    // Base URL — all types
+                    // Base URL
                     providerField("URL") {
-                        TextField("https://api.openai.com/v1", text: $urlField)
+                        TextField(provider.kind == .anthropic
+                            ? "https://api.anthropic.com"
+                            : provider.kind == .openai
+                                ? "https://api.openai.com/v1"
+                                : "https://RESOURCE.services.ai.azure.com/api/projects/PROJECT",
+                            text: $urlField)
                             .onChange(of: urlField) {
                                 provider.baseURL = urlField.isEmpty ? nil : urlField
                                 onChange()
                             }
                     }
 
-                    // Model name — all types except Azure (uses deployment_name)
-                    if provider.kind != .azureOpenAI {
-                        providerField("Model") {
-                            TextField("gpt-4o, claude-sonnet-4-6…", text: $modelField)
-                                .onChange(of: modelField) {
-                                    provider.model = modelField.isEmpty ? nil : modelField
-                                    onChange()
-                                }
-                        }
+                    // Model / Deployment name
+                    providerField(provider.kind == .custom ? "Model / Deployment" : "Model") {
+                        TextField(provider.kind == .custom
+                            ? "gpt-5.4-mini-1 (Azure deployment name)"
+                            : provider.kind == .openai ? "gpt-4o" : "claude-sonnet-4-20250514",
+                            text: $modelField)
+                            .onChange(of: modelField) {
+                                provider.model = modelField.isEmpty ? nil : modelField
+                                onChange()
+                            }
                     }
 
-                    // Azure-specific extra fields
-                    if provider.kind == .azureOpenAI {
-                        providerField("Deployment") {
-                            TextField("gpt4o-prod", text: $deploymentField)
-                                .onChange(of: deploymentField) {
-                                    provider.deploymentName = deploymentField.isEmpty ? nil : deploymentField
-                                    onChange()
-                                }
-                        }
+                    // API Version — custom only (needed for Azure)
+                    if provider.kind == .custom {
                         providerField("API verze") {
-                            TextField("2024-02-01", text: $apiVersionField)
+                            TextField("2024-02-01  (prázdné = auto)", text: $apiVersionField)
                                 .onChange(of: apiVersionField) {
                                     provider.apiVersion = apiVersionField.isEmpty ? nil : apiVersionField
                                     onChange()

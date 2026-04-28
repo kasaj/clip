@@ -141,22 +141,21 @@ struct OverlayView: View {
             headerBar
             Divider()
             if showHistory { historyPanel; Divider() }
-            // Input section — capped, scrollable; window size stays fixed
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    contextPreview
-                    promptField
-                    optionCheckboxes
-                    actionButtons
-                }
-                .padding(16)
+            // Input section — natural height, scrolls only when necessary
+            VStack(alignment: .leading, spacing: 10) {
+                contextPreview
+                promptField
+                optionCheckboxes
+                actionButtons
             }
-            .frame(maxHeight: 210)
+            .padding(16)
+            .layoutPriority(0)   // yields space to output when window is small
             Divider()
-            // Output section — always present, fills remaining space
+            // Output section — guaranteed minimum height, always visible
             resultArea
                 .padding(16)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minHeight: 200, maxHeight: .infinity)
+                .layoutPriority(1)   // output gets space first
         }
     }
 
@@ -355,27 +354,17 @@ struct OverlayView: View {
 
     @ViewBuilder
     private var optionCheckboxes: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             if hasSessionFolder {
                 Toggle(isOn: $recordThisSession) {
                     Label("Record", systemImage: "square.and.arrow.down")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 .toggleStyle(.checkbox)
-                .help("Save input and output to session log")
+                .help("Uložit vstup a výstup do session logu")
             }
 
-            // "Also send image" — visible when OCR found text but original image is available
-            if !ignoreClipboard, contextIsFromOCR, ocrSourceImageData != nil {
-                Toggle(isOn: $sendOCRImage) {
-                    Label("Send image", systemImage: "photo")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
-                .toggleStyle(.checkbox)
-                .help("Also send the source image to the model alongside the OCR text")
-            }
-
-            // Load URL — always visible; auto-checked when clipboard is a pure URL
+            // Load URL
             Toggle(isOn: $loadURL) {
                 Label("Load URL", systemImage: "globe")
                     .font(.caption2).foregroundStyle(.secondary)
@@ -383,27 +372,53 @@ struct OverlayView: View {
             .toggleStyle(.checkbox)
             .disabled(loadURLAuto)
             .help(loadURLAuto
-                  ? "Clipboard is a URL — page will be fetched automatically"
-                  : "Fetch content of URL(s) found in clipboard and append to context")
+                  ? "Clipboard obsahuje URL — stránka bude načtena automaticky"
+                  : "Načíst obsah URL z clipboardu a přidat ke kontextu")
 
             Toggle(isOn: $ignoreClipboard) {
-                Label("Ignore clipboard", systemImage: "doc.on.clipboard.fill")
+                Label("Ignore", systemImage: "doc.on.clipboard.fill")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             .toggleStyle(.checkbox)
-            .help("Skip clipboard; run agent with prompt only")
+            .help("Ignorovat clipboard; spustit agenta pouze s promptem")
             .onChange(of: ignoreClipboard) { _, _ in showFullContext = false }
 
             Toggle(isOn: $readOutput) {
-                Label("Read aloud", systemImage: "speaker.wave.2")
+                Label("Read", systemImage: "speaker.wave.2")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             .toggleStyle(.checkbox)
-            .help("Read the result via text-to-speech")
+            .help("Přečíst výsledek nahlas (TTS)")
+
+            // "Also send image" — when OCR found text but original image is available
+            if !ignoreClipboard, contextIsFromOCR, ocrSourceImageData != nil {
+                Toggle(isOn: $sendOCRImage) {
+                    Label("+ image", systemImage: "photo")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                .toggleStyle(.checkbox)
+                .help("Přiložit také zdrojový obrázek vedle OCR textu")
+            }
+
+            // OCR button — permanent; highlighted when clipboard contains image with detectable text
+            let ocrReady = contextIsFromOCR && contextText != nil && !ignoreClipboard
+            Button {
+                if let text = contextText { engine.showText(text) }
+            } label: {
+                Label("OCR", systemImage: "doc.viewfinder")
+                    .font(.caption2)
+            }
+            .buttonStyle(.bordered)
+            .tint(ocrReady ? .accentColor : .secondary)
+            .controlSize(.small)
+            .disabled(!ocrReady)
+            .help(ocrReady
+                  ? "Zobrazit rozpoznaný text z obrázku"
+                  : "Clipboard neobsahuje obrázek s rozpoznatelným textem")
 
             if speech.isSpeaking {
                 Button("Stop") { speech.stop() }
-                    .font(.caption2).buttonStyle(.bordered)
+                    .font(.caption2).buttonStyle(.bordered).controlSize(.small)
             }
 
             Spacer()
@@ -420,13 +435,6 @@ struct OverlayView: View {
                     Text(status).font(.caption2).foregroundStyle(.secondary)
                 }
                 .padding(.bottom, 2)
-            }
-
-            if contextIsFromOCR && !ignoreClipboard {
-                actionButton(title: "Recognise text (OCR)", missingKey: false, isRunning: false, keyHint: nil) {
-                    if let text = contextText { engine.showText(text) }
-                }
-                Divider()
             }
 
             ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in

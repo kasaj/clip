@@ -14,27 +14,31 @@ struct ModelPreset: Identifiable, Codable, Equatable {
 
 // MARK: - ProviderKind
 
+/// Three provider kinds — Azure AI goes under .custom (auto-detected by URL domain).
 enum ProviderKind: String, Codable, CaseIterable {
-    case anthropic                    // Anthropic Messages API — direct or Azure AI Foundry
-    case openai                       // OpenAI Chat Completions API — direct
-    case azureOpenAI = "azure_openai" // Azure OpenAI — builds deployment URL from endpoint.*
-    case custom                       // Any OpenAI-compatible endpoint
+    case anthropic  // Anthropic Messages API
+    case openai     // OpenAI Chat Completions (direct)
+    case custom     // Any OpenAI-compatible endpoint: Azure AI, local, etc.
+
+    // Custom decoder so "azure_openai" (legacy) gracefully falls back to .custom
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ProviderKind(rawValue: raw) ?? .custom
+    }
 
     var displayName: String {
         switch self {
-        case .anthropic:   "Anthropic"
-        case .openai:      "OpenAI"
-        case .azureOpenAI: "Azure OpenAI"
-        case .custom:      "Vlastní (OpenAI-compatible)"
+        case .anthropic: "Anthropic"
+        case .openai:    "OpenAI"
+        case .custom:    "Vlastní / Azure AI"
         }
     }
 
     var defaultBaseURL: String {
         switch self {
-        case .anthropic:   "https://api.anthropic.com"
-        case .openai:      "https://api.openai.com/v1"
-        case .azureOpenAI: ""
-        case .custom:      ""
+        case .anthropic: "https://api.anthropic.com"
+        case .openai:    "https://api.openai.com/v1"
+        case .custom:    ""
         }
     }
 
@@ -42,9 +46,9 @@ enum ProviderKind: String, Codable, CaseIterable {
         switch self {
         case .anthropic:
             [
-                .init(id: "claude-sonnet-4-6",        displayName: "claude-sonnet-4.6", isRecommended: true),
-                .init(id: "claude-opus-4-7",           displayName: "claude-opus-4.7"),
-                .init(id: "claude-haiku-4-5-20251001", displayName: "claude-haiku-4.5")
+                .init(id: "claude-sonnet-4-20250514", displayName: "claude-sonnet-4.5", isRecommended: true),
+                .init(id: "claude-opus-4-5",          displayName: "claude-opus-4.5"),
+                .init(id: "claude-haiku-4-5",         displayName: "claude-haiku-4.5"),
             ]
         case .openai:
             [
@@ -52,9 +56,8 @@ enum ProviderKind: String, Codable, CaseIterable {
                 .init(id: "gpt-4o-mini", displayName: "gpt-4o-mini"),
                 .init(id: "o4-mini",     displayName: "o4-mini"),
                 .init(id: "o3",          displayName: "o3"),
-                .init(id: "o1",          displayName: "o1"),
             ]
-        case .azureOpenAI, .custom:
+        case .custom:
             []
         }
     }
@@ -170,6 +173,11 @@ struct Provider: Identifiable, Codable, Equatable, Hashable {
         if deploymentName?.isEmpty == true { deploymentName = nil }
         if apiVersion?.isEmpty     == true { apiVersion = nil }
         if organizationId?.isEmpty == true { organizationId = nil }
+        // Azure migration: old azure_openai used deploymentName as the model identifier;
+        // for .custom type, model is the primary identifier → promote deploymentName → model
+        if kind == .custom, model == nil, let dep = deploymentName {
+            model = dep
+        }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -232,14 +240,12 @@ struct Provider: Identifiable, Codable, Equatable, Hashable {
             return Provider(name: n, kind: .openai,
                 baseURL: "https://api.openai.com/v1",
                 model: "gpt-4o", defaults: def)
-        case .azureOpenAI:
-            return Provider(name: n, kind: .azureOpenAI,
-                baseURL: "https://RESOURCE.openai.azure.com/",
-                deploymentName: "DEPLOYMENT",
-                apiVersion: "2024-02-01", defaults: def)
         case .custom:
+            // Pre-filled for Azure AI Foundry; user replaces placeholders
             return Provider(name: n, kind: .custom,
-                baseURL: "https://", model: "", defaults: def)
+                baseURL: "https://RESOURCE.services.ai.azure.com/api/projects/PROJECT",
+                model: "DEPLOYMENT-NAME",
+                apiVersion: "2024-02-01", defaults: def)
         }
     }
 

@@ -22,9 +22,9 @@ enum ModelFetchError: LocalizedError {
 enum ModelFetcher {
     static func fetch(for provider: Provider) async throws -> [FetchedModel] {
         switch provider.kind {
-        case .openai:      return try await fetchOpenAI(provider: provider)
-        case .anthropic:   return try await fetchAnthropic(provider: provider)
-        case .azureOpenAI, .custom: throw ModelFetchError.unsupportedProvider
+        case .openai:    return try await fetchOpenAI(provider: provider)
+        case .anthropic: return try await fetchAnthropic(provider: provider)
+        case .custom:    throw ModelFetchError.unsupportedProvider
         }
     }
 
