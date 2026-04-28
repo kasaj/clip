@@ -252,7 +252,7 @@ struct SettingsView: View {
             Divider()
             HStack(spacing: 12) {
                 Button("+ Přidat provider") {
-                    config.providers.append(Provider(name: "Nový provider", kind: .openai))
+                    config.providers.append(Provider.template(kind: .openai))
                     ConfigStore.shared.update { $0.providers = config.providers }
                 }
                 Spacer()
@@ -308,9 +308,14 @@ struct ProviderRow: View {
     @State private var expanded = false
     @State private var confirmDelete = false
     @State private var testState: ProviderTestState = .idle
+    @State private var keyField = ""
+    @State private var keySaved: Bool? = nil
 
     private var hasKey: Bool {
         (provider.auth?.apiKey?.isEmpty == false) || KeychainStore.hasKey(forProviderID: provider.id)
+    }
+    private var supportsInlineKey: Bool {
+        provider.kind == .anthropic || provider.kind == .openai
     }
 
     var body: some View {
@@ -367,7 +372,14 @@ struct ProviderRow: View {
                             ForEach(ProviderKind.allCases, id: \.self) { Text($0.displayName).tag($0) }
                         }
                         .labelsHidden().frame(width: 200)
-                        .onChange(of: provider.kind) { _, _ in onChange() }
+                        .onChange(of: provider.kind) { _, newKind in
+                            // Re-apply template for the new kind (keep id and name)
+                            let t = Provider.template(kind: newKind, name: provider.name)
+                            provider.auth     = t.auth
+                            provider.endpoint = t.endpoint
+                            provider.options  = t.options
+                            onChange()
+                        }
                     }
 
                     HStack(spacing: 16) {
@@ -376,6 +388,19 @@ struct ProviderRow: View {
                             .font(.caption).onChange(of: provider.enabled) { onChange() }
                         Toggle("Výchozí", isOn: $provider.isDefault)
                             .font(.caption).onChange(of: provider.isDefault) { onChange() }
+                    }
+
+                    // API key — only for Anthropic and OpenAI (Azure/custom use providers.json)
+                    if supportsInlineKey {
+                        HStack(alignment: .center) {
+                            Text("API Klíč").font(.caption).foregroundStyle(.secondary).frame(width: 72, alignment: .trailing)
+                            SecureField("API klíč", text: $keyField).onSubmit { saveKey() }
+                            Button("Uložit") { saveKey() }.disabled(keyField.isEmpty)
+                            if let saved = keySaved {
+                                Image(systemName: saved ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundStyle(saved ? .green : .red)
+                            }
+                        }
                     }
 
                     // Test connectivity
@@ -404,13 +429,31 @@ struct ProviderRow: View {
 
                     HStack {
                         Text("").frame(width: 72)
-                        Text("Model, API klíč, URL a ostatní nastavte v providers.json")
-                            .font(.caption2).foregroundStyle(.secondary)
+                        Group {
+                            if supportsInlineKey {
+                                Text("Model, URL a ostatní nastavte v providers.json")
+                            } else {
+                                Text("API klíč, model, URL a ostatní nastavte v providers.json")
+                            }
+                        }
+                        .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
                 .padding(.leading, 20).padding(.bottom, 8)
             }
         }
+        .onAppear {
+            if supportsInlineKey {
+                keyField = (try? KeychainStore.load(forProviderID: provider.id)) ?? ""
+            }
+        }
+    }
+
+    private func saveKey() {
+        do {
+            try KeychainStore.save(apiKey: keyField, forProviderID: provider.id)
+            keySaved = true; onChange()
+        } catch { keySaved = false }
     }
 
     private func runTest() async {

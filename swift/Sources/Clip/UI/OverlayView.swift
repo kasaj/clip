@@ -65,8 +65,8 @@ struct OverlayView: View {
                 overlayContent
             }
         }
-        .frame(minWidth: 520, idealWidth: 660, maxWidth: .infinity,
-               minHeight: 320, idealHeight: 500, maxHeight: .infinity)
+        .frame(minWidth: 520, idealWidth: 680, maxWidth: .infinity,
+               minHeight: 380, idealHeight: 620, maxHeight: .infinity)
         .onAppear {
             recordThisSession = ConfigStore.shared.config.recordSessions
             resolveContext()
@@ -150,10 +150,12 @@ struct OverlayView: View {
                 }
                 .padding(16)
             }
-            .frame(maxHeight: hasResult ? 220 : .infinity)
+            .frame(maxHeight: hasResult ? 170 : .infinity)
             if hasResult {
                 Divider()
-                resultArea.padding(16)
+                resultArea
+                    .padding(16)
+                    .frame(maxHeight: .infinity)
             }
         }
     }

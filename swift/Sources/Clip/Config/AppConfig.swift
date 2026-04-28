@@ -182,6 +182,37 @@ struct Provider: Identifiable, Codable, Equatable, Hashable {
         return stored.isEmpty ? kind.presetModels : stored
     }
 
+    // MARK: - Template factory — pre-filled config when adding a new provider
+
+    static func template(kind: ProviderKind, name: String = "") -> Provider {
+        let n = name.isEmpty ? kind.displayName : name
+        switch kind {
+        case .anthropic:
+            return Provider(name: n, kind: .anthropic,
+                auth: ProviderAuth(apiKey: ""),
+                endpoint: ProviderEndpoint(baseURL: "https://api.anthropic.com"),
+                options: ProviderOptions(model: "claude-sonnet-4-20250514", maxTokens: 4096, temperature: 0.7))
+        case .openai:
+            return Provider(name: n, kind: .openai,
+                auth: ProviderAuth(apiKey: ""),
+                endpoint: ProviderEndpoint(baseURL: "https://api.openai.com/v1"),
+                options: ProviderOptions(model: "gpt-4o", maxTokens: 4096, temperature: 0.7))
+        case .azureOpenAI:
+            return Provider(name: n, kind: .azureOpenAI,
+                auth: ProviderAuth(apiKey: "", authType: "api_key"),
+                endpoint: ProviderEndpoint(baseURL: "https://RESOURCE.openai.azure.com/",
+                                           apiVersion: "2024-02-01",
+                                           resourceName: "RESOURCE",
+                                           deploymentName: "DEPLOYMENT"),
+                options: ProviderOptions(model: "gpt-4o", maxTokens: 4096, temperature: 0.7))
+        case .custom:
+            return Provider(name: n, kind: .custom,
+                auth: ProviderAuth(apiKey: ""),
+                endpoint: ProviderEndpoint(baseURL: "https://"),
+                options: ProviderOptions(model: "", maxTokens: 4096, temperature: 0.7))
+        }
+    }
+
     // MARK: Well-known default UUIDs — stable across installs; used for migration
     static let claudeAzureID  = UUID(uuidString: "A0000000-0000-0000-0000-000000000001")!
     static let claudeDirectID = UUID(uuidString: "A0000000-0000-0000-0000-000000000002")!
