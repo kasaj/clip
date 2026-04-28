@@ -54,8 +54,9 @@ enum ProviderFactory {
             guard !provider.baseURL.isEmpty else {
                 throw LLMError.missingAPIKey("\(provider.name) — Base URL není nastavena")
             }
+            let fallback = provider.defaultModel.isEmpty ? "claude-sonnet-4-6" : provider.defaultModel
             return AnthropicProvider(
-                model: model.isEmpty ? "claude-sonnet-4-6" : model,
+                model: model.isEmpty ? fallback : model,
                 apiKey: apiKey,
                 baseURL: provider.baseURL,
                 apiVersion: provider.apiVersion,
@@ -63,16 +64,38 @@ enum ProviderFactory {
             )
 
         case .openai, .custom:
-            guard !provider.baseURL.isEmpty, let baseURL = URL(string: provider.baseURL) else {
+            guard !provider.baseURL.isEmpty, let parsedURL = URL(string: provider.baseURL) else {
                 throw LLMError.missingAPIKey("\(provider.name) — Base URL není nastavena")
             }
-            let isAzure = provider.baseURL.lowercased().contains(".azure.com")
-            return OpenAIProvider(
-                model: model.isEmpty ? "gpt-4o" : model,
-                apiKey: apiKey, baseURL: baseURL,
-                authStyle: isAzure ? .apiKey : .bearer,
-                temperature: temperature, maxTokens: maxTokens
-            )
+            let urlLower = provider.baseURL.lowercased()
+            let isAzure = urlLower.contains(".azure.com") || urlLower.contains(".services.ai.azure.com")
+            let auth: OpenAIAuthStyle = isAzure ? .apiKey : .bearer
+            let fallback = provider.defaultModel.isEmpty ? "gpt-4o" : provider.defaultModel
+            let effectiveModel = model.isEmpty ? fallback : model
+
+            // Detect full endpoint URLs so Clip doesn't append /chat/completions wrongly:
+            //   …/responses        → OpenAI Responses API (Azure AI Foundry project endpoints)
+            //   …/chat/completions → standard Chat Completions used directly
+            //   anything else      → treat as base URL, append /chat/completions
+            if urlLower.hasSuffix("/responses") {
+                return ResponsesAPIProvider(
+                    model: effectiveModel, apiKey: apiKey,
+                    endpointURL: parsedURL, authStyle: auth,
+                    temperature: temperature, maxTokens: maxTokens
+                )
+            } else if urlLower.hasSuffix("/chat/completions") {
+                return OpenAIProvider(
+                    model: effectiveModel, apiKey: apiKey,
+                    chatURL: parsedURL, authStyle: auth,
+                    temperature: temperature, maxTokens: maxTokens
+                )
+            } else {
+                return OpenAIProvider(
+                    model: effectiveModel, apiKey: apiKey,
+                    baseURL: parsedURL, authStyle: auth,
+                    temperature: temperature, maxTokens: maxTokens
+                )
+            }
         }
     }
 

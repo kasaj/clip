@@ -3,7 +3,8 @@ import Vision
 
 enum ContextResult {
     case text(String, isOCR: Bool)
-    case image(Data, mimeType: String)   // clipboard image with no extractable text
+    case textWithImage(String, Data, mimeType: String)  // OCR text + source image for vision
+    case image(Data, mimeType: String)                  // clipboard image with no extractable text
     case error(ContextError)
 }
 
@@ -52,16 +53,22 @@ enum ContextResolver {
     // MARK: - Image handling
 
     /// Try OCR first; if no text is found, return the image itself for vision models.
+    /// If OCR succeeds, also attach the source image so the user can optionally send both.
     private static func resolveImage(_ image: NSImage) async -> ContextResult {
-        if let ocrResult = await tryOCR(on: image) {
-            return ocrResult
+        if let ocrText = await tryOCR(on: image) {
+            // OCR succeeded — build image result too so user can attach it alongside text
+            let imgResult = imageResult(from: image)
+            if case .image(let data, let mimeType) = imgResult {
+                return .textWithImage(ocrText, data, mimeType: mimeType)
+            }
+            return .text(ocrText, isOCR: true)
         }
         // OCR found nothing — return raw image so vision models can process it
         return imageResult(from: image)
     }
 
-    /// Returns `.text(ocrText, isOCR: true)` if text was found, nil otherwise.
-    private static func tryOCR(on image: NSImage) async -> ContextResult? {
+    /// Returns the OCR text string if text was found, nil otherwise.
+    private static func tryOCR(on image: NSImage) async -> String? {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return nil
         }
@@ -75,11 +82,7 @@ enum ContextResolver {
                     .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
                     .compactMap { $0.topCandidates(1).first?.string }
                     .joined(separator: "\n")
-                if text.isEmpty {
-                    continuation.resume(returning: nil)
-                } else {
-                    continuation.resume(returning: .text(text, isOCR: true))
-                }
+                continuation.resume(returning: text.isEmpty ? nil : text)
             }
             request.recognitionLevel = .accurate
             try? VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])

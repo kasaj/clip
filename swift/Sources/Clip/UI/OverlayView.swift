@@ -15,6 +15,9 @@ struct OverlayView: View {
     @State private var isResolvingContext = false
     @State private var contextIsFromOCR = false
     @State private var showFullContext = false
+    @State private var ocrSourceImageData: Data?     // original image when OCR found text
+    @State private var ocrSourceMimeType: String = "image/jpeg"
+    @State private var sendOCRImage = false          // "Also send image" checkbox
 
     // Prompt / options
     @State private var userPrompt: String = ""
@@ -121,6 +124,8 @@ struct OverlayView: View {
         loadURL = false
         loadURLAuto = false
         contextImageData = nil
+        ocrSourceImageData = nil
+        sendOCRImage = false
         readOutput = false
         recordThisSession = ConfigStore.shared.config.recordSessions
         showHistory = false
@@ -356,6 +361,16 @@ struct OverlayView: View {
                 .help("Save input and output to session log")
             }
 
+            // "Also send image" — visible when OCR found text but original image is available
+            if !ignoreClipboard, contextIsFromOCR, ocrSourceImageData != nil {
+                Toggle(isOn: $sendOCRImage) {
+                    Label("Send image", systemImage: "photo")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                .toggleStyle(.checkbox)
+                .help("Also send the source image to the model alongside the OCR text")
+            }
+
             // Load URL — visible only when clipboard contains at least one URL
             if !ignoreClipboard, let text = contextText,
                WebFetcher.containsAnyURL(text) {
@@ -422,7 +437,7 @@ struct OverlayView: View {
                         keyHint: index < 9 ? String(index + 1) : nil
                     ) { runAction(action) }
                     Button {
-                        var a = action; editingAction = a
+                        editingAction = action
                     } label: {
                         Image(systemName: "pencil").font(.caption2).foregroundStyle(.tertiary)
                     }
@@ -529,6 +544,8 @@ struct OverlayView: View {
         showFullContext = false
 
         isResolvingContext = true
+        ocrSourceImageData = nil
+        sendOCRImage = false
         let pb = NSPasteboard.general
         contextIsFromOCR = pb.string(forType: .string)?.isEmpty != false && NSImage(pasteboard: pb) != nil
         Task {
@@ -537,20 +554,31 @@ struct OverlayView: View {
             case .text(let text, let isOCR):
                 contextText = text
                 contextImageData = nil
+                ocrSourceImageData = nil
                 contextIsFromOCR = isOCR
                 let isPureURL = WebFetcher.isURL(text.trimmingCharacters(in: .whitespacesAndNewlines))
                 loadURLAuto = isPureURL
                 loadURL = isPureURL
+            case .textWithImage(let text, let data, let mime):
+                contextText = text
+                contextImageData = nil
+                ocrSourceImageData = data
+                ocrSourceMimeType = mime
+                contextIsFromOCR = true
+                loadURLAuto = false
+                loadURL = false
             case .image(let data, let mime):
                 contextText = nil
                 contextImageData = data
                 contextMimeType = mime
+                ocrSourceImageData = nil
                 contextIsFromOCR = false
                 loadURLAuto = false
                 loadURL = false
             case .error:
                 contextText = nil
                 contextImageData = nil
+                ocrSourceImageData = nil
                 loadURLAuto = false
                 loadURL = false
             }
@@ -583,10 +611,23 @@ struct OverlayView: View {
         } else {
             return
         }
-        let imgData = ignoreClipboard ? nil : contextImageData
+        // Determine image to send:
+        //  • pure-image clipboard → contextImageData
+        //  • OCR + "Send image" checkbox → ocrSourceImageData
+        let imgData: Data?
+        let imgMime: String?
+        if ignoreClipboard {
+            imgData = nil; imgMime = nil
+        } else if let data = contextImageData {
+            imgData = data; imgMime = contextMimeType
+        } else if sendOCRImage, let data = ocrSourceImageData {
+            imgData = data; imgMime = ocrSourceMimeType
+        } else {
+            imgData = nil; imgMime = nil
+        }
         engine.run(action: resolved, input: input, recordSession: recordThisSession,
                    loadURL: loadURL && !ignoreClipboard,
-                   imageData: imgData, imageMimeType: imgData != nil ? contextMimeType : nil)
+                   imageData: imgData, imageMimeType: imgMime)
     }
 
     private func copyResult() {

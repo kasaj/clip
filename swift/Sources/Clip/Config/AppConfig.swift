@@ -68,14 +68,27 @@ struct Provider: Identifiable, Codable, Equatable, Hashable {
     var kind: ProviderKind
     var baseURL: String         // Editable; auto-filled from kind.defaultBaseURL
     var apiVersion: String?     // For Azure endpoints that need ?api-version=...
+    var defaultModel: String    // Fallback model used when action doesn't override it
 
     init(id: UUID = UUID(), name: String, kind: ProviderKind,
-         baseURL: String? = nil, apiVersion: String? = nil) {
-        self.id         = id
-        self.name       = name
-        self.kind       = kind
-        self.baseURL    = baseURL ?? kind.defaultBaseURL
-        self.apiVersion = apiVersion
+         baseURL: String? = nil, apiVersion: String? = nil, defaultModel: String = "") {
+        self.id           = id
+        self.name         = name
+        self.kind         = kind
+        self.baseURL      = baseURL ?? kind.defaultBaseURL
+        self.apiVersion   = apiVersion
+        self.defaultModel = defaultModel
+    }
+
+    // Custom decoder so files saved before defaultModel was added still load cleanly.
+    init(from decoder: Decoder) throws {
+        let c    = try decoder.container(keyedBy: CodingKeys.self)
+        id           = try c.decode(UUID.self,         forKey: .id)
+        name         = try c.decode(String.self,       forKey: .name)
+        kind         = try c.decode(ProviderKind.self, forKey: .kind)
+        baseURL      = try c.decode(String.self,       forKey: .baseURL)
+        apiVersion   = try c.decodeIfPresent(String.self, forKey: .apiVersion)
+        defaultModel = try c.decodeIfPresent(String.self, forKey: .defaultModel) ?? ""
     }
 
     func effectiveModels(using presets: [String: [ModelPreset]]) -> [ModelPreset] {
@@ -116,13 +129,19 @@ struct ProviderExport: Codable {
     var kind: ProviderKind
     var baseURL: String
     var apiVersion: String?
+    var defaultModel: String?   // Optional so older JSON files decode cleanly
     var apiKey: String?         // Only written to folder file
 
     init(from provider: Provider, apiKey: String? = nil) {
         id = provider.id; name = provider.name; kind = provider.kind
-        baseURL = provider.baseURL; apiVersion = provider.apiVersion; self.apiKey = apiKey
+        baseURL = provider.baseURL; apiVersion = provider.apiVersion
+        defaultModel = provider.defaultModel.isEmpty ? nil : provider.defaultModel
+        self.apiKey = apiKey
     }
-    var asProvider: Provider { Provider(id: id, name: name, kind: kind, baseURL: baseURL, apiVersion: apiVersion) }
+    var asProvider: Provider {
+        Provider(id: id, name: name, kind: kind, baseURL: baseURL,
+                 apiVersion: apiVersion, defaultModel: defaultModel ?? "")
+    }
 }
 
 // MARK: - AppConfig

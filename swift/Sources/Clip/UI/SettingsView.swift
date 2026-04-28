@@ -402,6 +402,13 @@ struct ProviderRow: View {
                         ))
                     }
 
+                    HStack {
+                        Text("Def. model").font(.caption).foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
+                        TextField("např. gpt-4o nebo claude-opus-4-5", text: $provider.defaultModel)
+                            .onChange(of: provider.defaultModel) { onChange() }
+                        Text("(fallback když akce nemá model)").font(.caption2).foregroundStyle(.tertiary)
+                    }
+
                     HStack(alignment: .center) {
                         Text("API Klíč").font(.caption).foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
                         SecureField("API klíč", text: $keyField)

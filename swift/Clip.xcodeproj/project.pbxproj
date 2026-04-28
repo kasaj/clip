@@ -13,6 +13,7 @@
 		CC11223344556677889900CC /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD11223344556677889900DD /* SessionStore.swift */; };
 		EE11223344556677889900EE /* WebFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF11223344556677889900FF /* WebFetcher.swift */; };
 		107E3F54587858A4B2D73F27 /* OpenAIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E16BF47BB95B6257237524 /* OpenAIProvider.swift */; };
+		AB22334455667788990011BB /* ResponsesAPIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD22334455667788990011DD /* ResponsesAPIProvider.swift */; };
 		1548F1816AF1565C5FFBB2FD /* ProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 442548DEA3D00387E384367A /* ProviderFactory.swift */; };
 		1C2B45E4AA8EE0C9E320128D /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 299358F7A9CBA63430E341F7 /* HotkeyRecorderView.swift */; };
 		29688E8CAB94FFBD58DD2D42 /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB65AD326E16BF2E0137AABE /* HistoryStore.swift */; };
@@ -61,6 +62,7 @@
 		EB65AD326E16BF2E0137AABE /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
 		EE22334455667788990011AA /* SpeechPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechPlayer.swift; sourceTree = "<group>"; };
 		F3E16BF47BB95B6257237524 /* OpenAIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIProvider.swift; sourceTree = "<group>"; };
+		CD22334455667788990011DD /* ResponsesAPIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponsesAPIProvider.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -164,6 +166,7 @@
 				BB11223344556677889900BB /* AzureAnthropicProvider.swift */,
 				0E61E37FF25C63DFBED2FFA5 /* LLMProvider.swift */,
 				F3E16BF47BB95B6257237524 /* OpenAIProvider.swift */,
+				CD22334455667788990011DD /* ResponsesAPIProvider.swift */,
 				442548DEA3D00387E384367A /* ProviderFactory.swift */,
 			);
 			path = Providers;
@@ -256,6 +259,7 @@
 				BC2D56482DC2FA918A2CA3B0 /* LLMProvider.swift in Sources */,
 				9BA136F32541E38FB7ADE0F4 /* ModelFetcher.swift in Sources */,
 				107E3F54587858A4B2D73F27 /* OpenAIProvider.swift in Sources */,
+				AB22334455667788990011BB /* ResponsesAPIProvider.swift in Sources */,
 				450734B8BB48675A75765886 /* OverlayView.swift in Sources */,
 				E59EB23A8F4F48E658F183C4 /* OverlayWindowController.swift in Sources */,
 				1548F1816AF1565C5FFBB2FD /* ProviderFactory.swift in Sources */,
