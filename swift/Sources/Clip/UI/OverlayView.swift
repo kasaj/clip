@@ -692,6 +692,13 @@ struct OverlayView: View {
         var resolved = action
         resolved.systemPrompt = resolveVariables(in: action.systemPrompt)
 
+        // Prompt-only mode: no clipboard context at all → bypass action's system prompt
+        // so the user's prompt is sent directly as the primary instruction, not as
+        // data to be processed by a grammar-fixer / translator / etc.
+        if effectiveContext == nil && contextImageData == nil {
+            resolved.systemPrompt = ""
+        }
+
         let input: String
         if let text = effectiveContext, !text.isEmpty {
             if !userPrompt.isEmpty && !action.systemPrompt.contains("{{kontext}}") {
