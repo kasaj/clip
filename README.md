@@ -1,8 +1,8 @@
 # Clip
 
-Nástroj pro macOS, který zpracovává obsah schránky (text nebo obrázek) pomocí AI modelů. Stiskneš zkratku, vybereš akci — překlad, shrnutí, dotaz, extrakce klíčových informací — a výsledek se zobrazí přímo v overlay panelu.
+macOS nástroj pro zpracování obsahu schránky pomocí AI. Zkopíruješ text (nebo obrázek), stiskneš zkratku, vybereš akci — překlad, shrnutí, dotaz, extrakce klíčů — a výsledek se zobrazí přímo v plovoucím panelu.
 
-Existují dvě varianty — Python (rychlé nasazení, bez kompilace) a Swift (nativní macOS app, aktivně vyvíjená).
+Existují dvě varianty — **Python** (rychlé nasazení, bez kompilace) a **Swift** (nativní macOS app, aktivně vyvíjená).
 
 ---
 
@@ -10,61 +10,75 @@ Existují dvě varianty — Python (rychlé nasazení, bez kompilace) a Swift (n
 
 | | Python (`python/`) | Swift (`swift/`) |
 |---|---|---|
-| Spuštění | `python3 main.py` | Nativní .app (Xcode build nebo GitHub Release) |
+| Spuštění | `python3 main.py` | Nativní .app |
 | Hotkey | double-tap Ctrl | Cmd+Shift+Space (konfigurovatelné) |
-| UI | tkinter + osascript dialogy | Nativní SwiftUI overlay |
-| Konfigurace | `myconfig.yaml` (vše vč. klíčů) | Keychain (klíče) + JSON soubory |
-| Sync mezi zařízeními | ruční kopírování souboru | Složka na iDrive / OneDrive |
-| Session log | ne | volitelné — JSON soubory v session/ složce |
+| UI | tkinter dialogy | Nativní SwiftUI overlay |
+| Konfigurace | `myconfig.yaml` | Keychain (klíče) + JSON soubory |
+| Sync | ruční kopírování | Složka na iDrive / OneDrive |
+| Session log | ne | volitelné — Markdown soubory per den |
 | Stav | legacy | aktivně vyvíjená |
-
-Obě varianty lze provozovat současně — nemají konflikt hotkey (různé mechanismy).
-
----
-
-## Rychlý start – Python
-
-```bash
-cd python
-pip3 install -r requirements.txt
-cp config.yaml myconfig.yaml   # vyplň API klíče a endpointy
-python3 main.py
-```
-
-Viz [python/README.md](python/README.md) pro podrobný návod.
 
 ---
 
 ## Rychlý start – Swift (Clip.app)
 
-### Nejrychlejší: GitHub Release (předkompilovaná .app)
+### GitHub Release (doporučeno)
 
-1. Stáhni nejnovější `Clip-swift-*.zip` z [Releases](../../releases)
+1. Stáhni nejnovější `Clip.app.zip` z [Releases](../../releases)
 2. Rozbal → přesuň `Clip.app` do `/Applications`
-3. Zkopíruj `Clip-config/` na iDrive / OneDrive (nebo libovolnou lokální složku)
-4. Spusť Clip → **Nastavení → Obecné → Složka konfigurace** → vyber svou složku
-5. Uprav `providers.json` dle vzoru `providers.example.json` (endpointy + API klíče)
-6. Restart Clip — vše se načte automaticky
+3. Spusť Clip — ikona se objeví v menu baru
+4. **Nastavení (⚙) → Providers** → přidej API provider (Anthropic / OpenAI / Azure / vlastní)
+5. **Nastavení → Actions** → uprav akce nebo přidej nové
+6. Volitelně: **Nastavení → General → Config folder** → vyber sdílenou složku (iDrive / OneDrive) pro synchronizaci mezi zařízeními
 
-### Ze zdrojového kódu (Xcode):
+### Ze zdrojového kódu
 
 ```bash
-open swift/JZLLMContext.xcodeproj
-# Xcode: Product → Run  (⌘R)
+open swift/Clip.xcodeproj
+# Xcode: Product → Run (⌘R)
 ```
 
-Viz [swift/README.md](swift/README.md) pro podrobný návod.
+---
+
+## Použití
+
+1. Zkopíruj text (`⌘C`) nebo obrázek
+2. Stiskni globální zkratku (výchozí: `Cmd+Shift+Space`)
+3. Overlay se otevře s obsahem schránky
+4. Zvol akci tlačítkem nebo klávesou `1`–`9`
+5. Výsledek zobrazí v panelu → `⌘C` zkopíruje, `✕` nebo `Esc` zavře
 
 ---
 
 ## Klíčové funkce Swift varianty
 
-- **Globální zkratka** (Cmd+Shift+Space) → přečte clipboard (text nebo OCR z obrázku)
-- **Agenti / akce** — šest výchozích (CZ, EN, ASK, KEY, WEB, M365), plně editovatelné
-- **Složka konfigurace** — synchronizace agentů a endpointů přes iDrive / OneDrive
-- **Session log** — volitelné zaznamenávání operací do JSON souborů (`session/`)
+- **Plovoucí panel** — zobrazí se přes všechny aplikace, neruší workflow
+- **OCR** — pokud je ve schránce obrázek, automaticky se rozezná text
+- **URL fetch** — pokud je ve schránce URL, stáhne obsah stránky před zpracováním
+- **Inline nastavení** — ⚙ otevře nastavení v tom samém panelu
+- **Providers** — Anthropic (direct + Azure), OpenAI (direct + Azure), vlastní OpenAI-compatible endpoint; klíče bezpečně v Keychain
+- **Akce** — plně konfigurovatelné systémové prompty s proměnnými `{{datum}}`, `{{jazyk}}`, `{{kontext}}`
+- **Session log** — volitelné zaznamenávání do Markdown souborů (per den, kompatibilní s Obsidian)
+- **Read aloud** — výsledek přečte TTS (preferuje českou kvalitu Premium/Enhanced)
+- **Ignore clipboard** — spustí akci jen s promptem bez kontextu ze schránky
+- **Config folder** — sdílení agentů a providerů přes iDrive / OneDrive (providers.json + agents.json)
 - **Spuštění při přihlášení** (Login Item)
-- **Podpora providerů**: Claude (Azure AI Foundry + direct), ChatGPT (Azure slot 1/2), OpenAI (direct), vlastní OpenAI-compatible
+- **Světlý/tmavý režim** — sleduje nastavení systému
+
+---
+
+## Konfigurace přes sdílenou složku
+
+Pokud nastavíš **Config folder**, Clip při startu načte:
+
+| Soubor | Obsah |
+|---|---|
+| `providers.json` | Endpointy a API klíče providerů |
+| `agents.json` | Definice akcí / agentů |
+
+Tím lze synchronizovat konfiguraci mezi více Macy. Vzor: `providers.example.json` v repozitáři.
+
+Session logy (pokud zapnuto) se zapisují do **Session folder** jako `YYYY-MM-DD.md` — každý výsledek jako sekce `## HH:MM — Agent`.
 
 ---
 
@@ -72,31 +86,22 @@ Viz [swift/README.md](swift/README.md) pro podrobný návod.
 
 ```
 clip/
-├── README.md                       # tento soubor
-├── .gitignore
+├── README.md
+├── Clip.app.zip                    # nejnovější release build
 │
-├── python/                         # Python varianta
-│   ├── main.py                     # vstupní bod
-│   ├── popup.py                    # UI okno
-│   ├── bubble.py                   # dialog s výsledkem
-│   ├── gpt.py                      # volání AI providerů
-│   ├── fetch.py                    # stahování URL obsahu
-│   ├── hotkey.py                   # globální zkratka
-│   ├── requirements.txt
-│   ├── config.yaml                 # PUBLIC – šablona (placeholders)
-│   └── myconfig.yaml               # GITIGNORED – reálné klíče a endpointy
+├── python/                         # Python varianta (legacy)
+│   ├── main.py
+│   ├── config.yaml                 # šablona (placeholders)
+│   └── myconfig.yaml               # GITIGNORED – reálné klíče
 │
-└── swift/                          # Swift/SwiftUI varianta (Clip.app)
-    ├── JZLLMContext.xcodeproj/
-    ├── Sources/
-    │   └── JZLLMContext/
-    │       ├── Config/             # AppConfig, ConfigStore, SessionStore…
-    │       ├── Providers/          # OpenAI, Anthropic, AzureAnthropic…
-    │       ├── UI/                 # OverlayView, SettingsView…
-    │       └── …
-    ├── agents.json                 # PUBLIC – agenti / akce (žádné secrets)
-    ├── providers.example.json      # PUBLIC – šablona endpointů
-    └── README.md
+└── swift/                          # Swift/SwiftUI varianta
+    ├── Clip.xcodeproj/
+    └── Sources/Clip/
+        ├── Config/                 # AppConfig, ConfigStore, SessionStore, KeychainStore
+        ├── Context/                # ContextResolver (text + OCR)
+        ├── Engine/                 # ActionEngine, WebFetcher, SpeechPlayer
+        ├── Providers/              # AnthropicProvider, OpenAIProvider, ProviderFactory
+        └── UI/                     # OverlayView, SettingsView, OverlayWindowController
 ```
 
 ---
@@ -106,10 +111,9 @@ clip/
 | Soubor | Git | Důvod |
 |---|---|---|
 | `python/config.yaml` | ✅ | pouze placeholders |
-| `python/myconfig.yaml` | ❌ gitignored | obsahuje reálné API klíče |
-| `swift/agents.json` | ✅ | jen prompty a metadata, žádné secrets |
-| `swift/providers.example.json` | ✅ | šablona s placeholders |
-| `providers.json` (v iDrive složce) | ❌ mimo repo | reálné endpointy + API klíče |
-| `session/*.json` (v iDrive složce) | ❌ mimo repo | logy operací |
-| API klíče | ❌ nikdy | Keychain — žádný soubor v repo |
-| `~/Library/Application Support/Clip/config.json` | ❌ | lokální, mimo repo |
+| `python/myconfig.yaml` | ❌ gitignored | reálné API klíče |
+| `Clip.app.zip` | ✅ | release build |
+| `providers.example.json` | ✅ | šablona bez secrets |
+| `providers.json` (v Config folder) | ❌ mimo repo | reálné endpointy + klíče |
+| Session logy (v Session folder) | ❌ mimo repo | osobní záznamy |
+| API klíče | ❌ nikdy | uloženy v Keychain |
