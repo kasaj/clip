@@ -390,17 +390,20 @@ struct OverlayView: View {
             .toggleStyle(.checkbox)
             .help("Přečíst výsledek nahlas (TTS)")
 
-            // "Also send image" — when OCR found text but original image is available
-            if !ignoreClipboard, contextIsFromOCR, ocrSourceImageData != nil {
-                Toggle(isOn: $sendOCRImage) {
-                    Label("+ image", systemImage: "photo")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
-                .toggleStyle(.checkbox)
-                .help("Přiložit také zdrojový obrázek vedle OCR textu")
+            // "+ image" — always visible; active when OCR image is available
+            let imageAvailable = contextIsFromOCR && ocrSourceImageData != nil && !ignoreClipboard
+            Toggle(isOn: $sendOCRImage) {
+                Label("+ image", systemImage: "photo")
+                    .font(.caption2)
+                    .foregroundStyle(imageAvailable ? .primary : .secondary)
             }
+            .toggleStyle(.checkbox)
+            .disabled(!imageAvailable)
+            .help(imageAvailable
+                  ? "Přiložit také zdrojový obrázek vedle OCR textu"
+                  : "Clipboard neobsahuje obrázek s textem")
 
-            // OCR button — permanent; highlighted when clipboard contains image with detectable text
+            // OCR button — always visible; highlighted (blue) when usable
             let ocrReady = contextIsFromOCR && contextText != nil && !ignoreClipboard
             Button {
                 if let text = contextText { engine.showText(text) }
