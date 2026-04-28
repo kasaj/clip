@@ -30,7 +30,7 @@ enum ModelFetcher {
 
     private static func inUseIDs(for provider: Provider) -> Set<String> {
         Set(ConfigStore.shared.config.actions
-            .filter { $0.provider == provider.id.uuidString }
+            .filter { $0.provider == provider.id }
             .map(\.model))
     }
 
@@ -38,7 +38,7 @@ enum ModelFetcher {
 
     private static func fetchOpenAI(provider: Provider) async throws -> [FetchedModel] {
         let key: String
-        if let k = provider.auth?.apiKey, !k.isEmpty { key = k }
+        if let k = provider.apiKey, !k.isEmpty { key = k }
         else if let k = try? KeychainStore.load(forProviderID: provider.id), !k.isEmpty { key = k }
         else { throw ModelFetchError.missingAPIKey }
         let rawBase = provider.effectiveBaseURL
@@ -71,7 +71,7 @@ enum ModelFetcher {
 
     private static func fetchAnthropic(provider: Provider) async throws -> [FetchedModel] {
         let key: String
-        if let k = provider.auth?.apiKey, !k.isEmpty { key = k }
+        if let k = provider.apiKey, !k.isEmpty { key = k }
         else if let k = try? KeychainStore.load(forProviderID: provider.id), !k.isEmpty { key = k }
         else { throw ModelFetchError.missingAPIKey }
         // Use direct api.anthropic.com for model listing even for Azure-proxied providers

@@ -7,11 +7,10 @@ enum ProviderFactory {
     static func make(for action: Action) throws -> any LLMProvider {
         let config = ConfigStore.shared.config
 
-        // Resolve provider: use action's assigned provider, or auto-pick if exactly one exists
+        // Resolve provider: match by string ID, or auto-pick if exactly one exists
         let provider: Provider
         if !action.provider.isEmpty,
-           let uuid = UUID(uuidString: action.provider),
-           let found = config.providers.first(where: { $0.id == uuid }) {
+           let found = config.providers.first(where: { $0.id == action.provider }) {
             provider = found
         } else if config.providers.count == 1 {
             // Convenience: auto-assign when there's exactly one provider
@@ -45,14 +44,14 @@ enum ProviderFactory {
 
     private static func makeProvider(provider: Provider, model: String,
                                      temperature: Double, maxTokens: Int) throws -> any LLMProvider {
-        // API key: JSON auth.api_key takes priority, then Keychain
+        // API key: flat provider.apiKey field first, then Keychain
         let apiKey: String
-        if let k = provider.auth?.apiKey, !k.isEmpty { apiKey = k }
+        if let k = provider.apiKey, !k.isEmpty { apiKey = k }
         else if let k = try? KeychainStore.load(forProviderID: provider.id), !k.isEmpty { apiKey = k }
         else { throw LLMError.missingAPIKey(provider.name) }
 
-        // Effective model: action override > provider options > kind default
-        let providerModel = provider.options?.model ?? ""
+        // Effective model: action override > provider model field > kind default
+        let providerModel = provider.model ?? ""
         let resolvedModel = model.isEmpty ? providerModel : model
 
         switch provider.kind {
@@ -102,7 +101,7 @@ enum ProviderFactory {
             }
             let lower = base.lowercased()
             // Deployment name is used as model identifier for Azure
-            let deployment = provider.endpoint?.deploymentName ?? ""
+            let deployment = provider.deploymentName ?? ""
             let finalModel = deployment.isEmpty ? (resolvedModel.isEmpty ? "gpt-4o" : resolvedModel) : deployment
 
             // Build full chat URL if deployment_name given and base is not already a full path
@@ -111,7 +110,7 @@ enum ProviderFactory {
                 fullURLStr = base   // already a complete endpoint URL
             } else if !deployment.isEmpty && !lower.contains("/deployments/") {
                 let b = base.hasSuffix("/") ? base : base + "/"
-                let ver = provider.endpoint?.apiVersion ?? "2024-02-01"
+                let ver = provider.apiVersion ?? "2024-02-01"
                 fullURLStr = "\(b)openai/deployments/\(deployment)/chat/completions?api-version=\(ver)"
             } else {
                 fullURLStr = base

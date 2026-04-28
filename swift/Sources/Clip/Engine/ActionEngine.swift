@@ -77,7 +77,7 @@ final class ActionEngine: ObservableObject {
                 let shouldRecord = recordSession || ConfigStore.shared.config.recordSessions
                 if shouldRecord {
                     let providerName = ConfigStore.shared.config.providers
-                        .first(where: { $0.id.uuidString == action.provider })?.name ?? action.provider
+                        .first(where: { $0.id == action.provider })?.name ?? action.provider
                     lastSessionURL = SessionStore.shared.save(
                         agent: action.name, provider: providerName,
                         model: action.model, input: effectiveInput,

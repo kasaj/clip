@@ -178,7 +178,7 @@ struct SettingsView: View {
             Divider()
             HStack {
                 Button("Přidat akci") {
-                    let firstProviderID = config.providers.first?.id.uuidString ?? Provider.claudeAzureID.uuidString
+                    let firstProviderID = config.providers.first?.id ?? Provider.claudeAzureID
                     config.actions.append(Action(name: "Nová akce", systemPrompt: "",
                                                  provider: firstProviderID, model: "", enabled: true))
                     ConfigStore.shared.update { $0.actions = config.actions }
@@ -315,7 +315,7 @@ struct ProviderRow: View {
     @State private var apiVersionField = ""
 
     private var hasKey: Bool {
-        (provider.auth?.apiKey?.isEmpty == false) || KeychainStore.hasKey(forProviderID: provider.id)
+        (provider.apiKey?.isEmpty == false) || KeychainStore.hasKey(forProviderID: provider.id)
     }
 
     var body: some View {
@@ -375,9 +375,13 @@ struct ProviderRow: View {
                         .labelsHidden().frame(width: 200)
                         .onChange(of: provider.kind) { _, newKind in
                             let t = Provider.template(kind: newKind, name: provider.name)
-                            provider.auth     = t.auth
-                            provider.endpoint = t.endpoint
-                            provider.options  = t.options
+                            // Reset connection fields to template defaults (keep id & name)
+                            provider.baseURL        = t.baseURL
+                            provider.model          = t.model
+                            provider.deploymentName = t.deploymentName
+                            provider.apiVersion     = t.apiVersion
+                            provider.defaults       = t.defaults
+                            // Keep apiKey — user might want the same key for multiple providers
                             syncFields()
                             onChange()
                         }
@@ -397,37 +401,35 @@ struct ProviderRow: View {
                     providerField("URL") {
                         TextField("https://api.openai.com/v1", text: $urlField)
                             .onChange(of: urlField) {
-                                if provider.endpoint == nil { provider.endpoint = ProviderEndpoint() }
-                                provider.endpoint?.baseURL = urlField.isEmpty ? nil : urlField
+                                provider.baseURL = urlField.isEmpty ? nil : urlField
                                 onChange()
                             }
                     }
 
-                    // Model name — all types
-                    providerField("Model") {
-                        TextField(provider.kind == .azureOpenAI ? "deployment name nebo model" : "gpt-4o, claude-sonnet-4-6…", text: $modelField)
-                            .onChange(of: modelField) {
-                                if provider.options == nil { provider.options = ProviderOptions() }
-                                provider.options?.model = modelField.isEmpty ? nil : modelField
-                                onChange()
-                            }
+                    // Model name — all types except Azure (uses deployment_name)
+                    if provider.kind != .azureOpenAI {
+                        providerField("Model") {
+                            TextField("gpt-4o, claude-sonnet-4-6…", text: $modelField)
+                                .onChange(of: modelField) {
+                                    provider.model = modelField.isEmpty ? nil : modelField
+                                    onChange()
+                                }
+                        }
                     }
 
                     // Azure-specific extra fields
                     if provider.kind == .azureOpenAI {
                         providerField("Deployment") {
-                            TextField("my-gpt4-deployment", text: $deploymentField)
+                            TextField("gpt4o-prod", text: $deploymentField)
                                 .onChange(of: deploymentField) {
-                                    if provider.endpoint == nil { provider.endpoint = ProviderEndpoint() }
-                                    provider.endpoint?.deploymentName = deploymentField.isEmpty ? nil : deploymentField
+                                    provider.deploymentName = deploymentField.isEmpty ? nil : deploymentField
                                     onChange()
                                 }
                         }
                         providerField("API verze") {
                             TextField("2024-02-01", text: $apiVersionField)
                                 .onChange(of: apiVersionField) {
-                                    if provider.endpoint == nil { provider.endpoint = ProviderEndpoint() }
-                                    provider.endpoint?.apiVersion = apiVersionField.isEmpty ? nil : apiVersionField
+                                    provider.apiVersion = apiVersionField.isEmpty ? nil : apiVersionField
                                     onChange()
                                 }
                         }
@@ -483,15 +485,18 @@ struct ProviderRow: View {
     }
 
     private func syncFields() {
-        keyField        = (try? KeychainStore.load(forProviderID: provider.id)) ?? ""
-        urlField        = provider.endpoint?.baseURL ?? ""
-        modelField      = provider.options?.model ?? ""
-        deploymentField = provider.endpoint?.deploymentName ?? ""
-        apiVersionField = provider.endpoint?.apiVersion ?? ""
+        keyField        = provider.apiKey ?? (try? KeychainStore.load(forProviderID: provider.id)) ?? ""
+        urlField        = provider.baseURL ?? ""
+        modelField      = provider.model ?? ""
+        deploymentField = provider.deploymentName ?? ""
+        apiVersionField = provider.apiVersion ?? ""
     }
 
     private func saveKey() {
+        guard !keyField.isEmpty else { return }
         do {
+            // Save to both JSON field (providers.json) and Keychain
+            provider.apiKey = keyField
             try KeychainStore.save(apiKey: keyField, forProviderID: provider.id)
             keySaved = true; onChange()
         } catch { keySaved = false }
@@ -520,8 +525,8 @@ struct ActionRow: View {
     private var isCustom: Bool { pickerModel == customSentinel }
 
     private var resolvedProvider: Provider? {
-        guard let uuid = UUID(uuidString: action.provider) else { return nil }
-        return ConfigStore.shared.config.providers.first(where: { $0.id == uuid })
+        guard !action.provider.isEmpty else { return nil }
+        return ConfigStore.shared.config.providers.first(where: { $0.id == action.provider })
     }
 
     var body: some View {
@@ -567,7 +572,7 @@ struct ActionRow: View {
 
         return HStack(spacing: 6) {
             Picker("Provider", selection: $action.provider) {
-                ForEach(providers) { p in Text(p.name).tag(p.id.uuidString) }
+                ForEach(providers) { p in Text(p.name).tag(p.id) }
             }
             .labelsHidden().frame(width: 160)
             .onChange(of: action.provider) {

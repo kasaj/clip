@@ -4,22 +4,22 @@ import Security
 enum KeychainStore {
     private static let service = "com.jz.Clip"
 
-    // MARK: - UUID-based API (new dynamic providers)
+    // MARK: - Provider API (id is now a plain String)
 
-    private static func account(forProviderID id: UUID) -> String {
-        "clip.provider.\(id.uuidString)"
+    private static func account(forProviderID id: String) -> String {
+        "clip.provider.\(id)"
     }
 
-    static func save(apiKey: String, forProviderID id: UUID) throws {
+    static func save(apiKey: String, forProviderID id: String) throws {
         try write(apiKey, account: account(forProviderID: id))
     }
-    static func load(forProviderID id: UUID) throws -> String {
+    static func load(forProviderID id: String) throws -> String {
         try read(account: account(forProviderID: id))
     }
-    static func hasKey(forProviderID id: UUID) -> Bool {
+    static func hasKey(forProviderID id: String) -> Bool {
         (try? load(forProviderID: id))?.isEmpty == false
     }
-    static func delete(forProviderID id: UUID) {
+    static func delete(forProviderID id: String) {
         remove(account: account(forProviderID: id))
     }
 

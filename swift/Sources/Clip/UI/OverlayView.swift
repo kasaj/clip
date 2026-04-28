@@ -141,6 +141,7 @@ struct OverlayView: View {
             headerBar
             Divider()
             if showHistory { historyPanel; Divider() }
+            // Input section — capped, scrollable; window size stays fixed
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     contextPreview
@@ -150,13 +151,12 @@ struct OverlayView: View {
                 }
                 .padding(16)
             }
-            .frame(maxHeight: hasResult ? 170 : .infinity)
-            if hasResult {
-                Divider()
-                resultArea
-                    .padding(16)
-                    .frame(maxHeight: .infinity)
-            }
+            .frame(maxHeight: 210)
+            Divider()
+            // Output section — always present, fills remaining space
+            resultArea
+                .padding(16)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -178,9 +178,11 @@ struct OverlayView: View {
                 Spacer()
                 Text("Settings").font(.headline)
                 Spacer()
-                // Always-visible close button
+                // Always-visible close button — red like in main overlay
                 Button(action: close) {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.red)
+                        .font(.system(size: 15))
                 }
                 .buttonStyle(.plain)
             }
@@ -502,6 +504,12 @@ struct OverlayView: View {
                     Button(didCopy ? "Copied ✓" : "Copy") { copyResult() }
                         .keyboardShortcut("c", modifiers: .command)
                 }
+            } else {
+                // Placeholder — always show output area so window stays the same size
+                Text(engine.isLoading ? "" : "Výsledek se zobrazí zde…")
+                    .font(.caption)
+                    .foregroundStyle(Color(.placeholderTextColor))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
@@ -513,12 +521,12 @@ struct OverlayView: View {
     private func hasKey(for action: Action) -> Bool {
         let config = ConfigStore.shared.config
         if !action.provider.isEmpty,
-           let uuid = UUID(uuidString: action.provider),
-           let prov = config.providers.first(where: { $0.id == uuid }) {
-            return KeychainStore.hasKey(forProviderID: prov.id)
+           let prov = config.providers.first(where: { $0.id == action.provider }) {
+            return (prov.apiKey?.isEmpty == false) || KeychainStore.hasKey(forProviderID: prov.id)
         }
         if config.providers.count == 1 {
-            return KeychainStore.hasKey(forProviderID: config.providers[0].id)
+            let p = config.providers[0]
+            return (p.apiKey?.isEmpty == false) || KeychainStore.hasKey(forProviderID: p.id)
         }
         return false
     }
