@@ -209,7 +209,7 @@ struct OverlayView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16).padding(.vertical, 12)
+            .padding(.horizontal, 16).padding(.vertical, 6)
             Divider()
             SettingsView()
         }
@@ -282,7 +282,7 @@ struct OverlayView: View {
             .buttonStyle(.plain)
             .help("Close (Esc)")
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
+        .padding(.horizontal, 16).padding(.vertical, 6)
     }
 
     // MARK: - History panel
@@ -434,11 +434,10 @@ struct OverlayView: View {
                 .help("Uložit vstup a výstup do session logu")
             }
 
-            let hasURLs = contextText.map { WebFetcher.containsAnyURL($0) } ?? false
             Toggle(isOn: $loadURL) {
                 Label("URLFetch", systemImage: "globe")
                     .font(.caption2)
-                    .foregroundStyle(hasURLs ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(Color.secondary)
             }
             .toggleStyle(.checkbox)
             .disabled(loadURLAuto)
@@ -446,11 +445,10 @@ struct OverlayView: View {
                   ? "Clipboard obsahuje URL — stránka bude načtena automaticky"
                   : "Načíst obsah URL z clipboardu a přidat ke kontextu")
 
-            let hasClipboard = (contextText != nil || contextImageData != nil) && !isResolvingContext
             Toggle(isOn: $ignoreClipboard) {
                 Label("Ignore", systemImage: "doc.on.clipboard.fill")
                     .font(.caption2)
-                    .foregroundStyle(hasClipboard ? Color.primary : Color.secondary)
+                    .foregroundStyle(Color.secondary)
             }
             .toggleStyle(.checkbox)
             .help("Ignorovat clipboard; spustit agenta pouze s promptem")
@@ -511,8 +509,8 @@ struct OverlayView: View {
                 .padding(.bottom, 2)
             }
 
-            // Two-column grid — each button half-width
-            let columns = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
+            // Three-column grid — each button one-third width
+            let columns = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
             LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
                 ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
                     HStack(spacing: 4) {

@@ -45,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let headerItem = NSMenuItem()
         let headerView = NSHostingView(rootView: MenuHeaderView(hotkeyState: hotkeyState))
-        headerView.frame = NSRect(x: 0, y: 0, width: 240, height: 54)
+        headerView.frame = NSRect(x: 0, y: 0, width: 240, height: 40)
         headerItem.view = headerView
         menu.addItem(headerItem)
         menu.addItem(.separator())
@@ -111,12 +111,6 @@ private struct MenuHeaderView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            if let icon = NSImage(named: "AppColorIcon") {
-                Image(nsImage: icon)
-                    .resizable()
-                    .frame(width: 32, height: 32)
-                    .clipShape(RoundedRectangle(cornerRadius: 7))
-            }
             VStack(alignment: .leading, spacing: 2) {
                 Text("Clip").font(.headline)
                 Text(hotkeyState.displayString).font(.caption).foregroundStyle(.secondary)
@@ -124,6 +118,6 @@ private struct MenuHeaderView: View {
             Spacer()
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.vertical, 10)
     }
 }
