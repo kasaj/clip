@@ -13,7 +13,7 @@ final class ActionEngine: ObservableObject {
 
     private var currentTask: Task<Void, Never>?
 
-    func run(action: Action, input: String, recordSession: Bool = false) {
+    func run(action: Action, input: String, recordSession: Bool = false, loadURL: Bool = false) {
         cancel()
         isLoading = true
         errorMessage = nil
@@ -27,15 +27,36 @@ final class ActionEngine: ObservableObject {
             // ── URL pre-fetch ─────────────────────────────────────────────
             var effectiveInput = input
             let rawText = input.trimmingCharacters(in: .whitespacesAndNewlines)
-            if WebFetcher.isURL(rawText) {
-                fetchStatus = "Načítám stránku…"
-                do {
-                    let pageText = try await WebFetcher.fetch(rawText)
-                    effectiveInput = "URL: \(rawText)\n\nObsah stránky:\n\(pageText)"
-                } catch {
-                    effectiveInput = "URL: \(rawText)\n\n[Obsah stránky se nepodařilo načíst: \(error.localizedDescription)]"
+
+            if loadURL {
+                if WebFetcher.isURL(rawText) {
+                    // Entire input is a single URL — replace with page content
+                    fetchStatus = "Loading page…"
+                    do {
+                        let pageText = try await WebFetcher.fetch(rawText)
+                        effectiveInput = "URL: \(rawText)\n\nPage content:\n\(pageText)"
+                    } catch {
+                        effectiveInput = "URL: \(rawText)\n\n[Could not load page: \(error.localizedDescription)]"
+                    }
+                    fetchStatus = nil
+                } else {
+                    // Text containing one or more URLs — fetch each and append
+                    let urls = WebFetcher.extractURLs(from: rawText)
+                    if !urls.isEmpty {
+                        fetchStatus = urls.count == 1 ? "Loading page…" : "Loading \(urls.count) pages…"
+                        var appended = rawText
+                        for url in urls {
+                            do {
+                                let pageText = try await WebFetcher.fetch(url)
+                                appended += "\n\n---\nContent from \(url):\n\(pageText)"
+                            } catch {
+                                appended += "\n\n---\n\(url): [Could not load: \(error.localizedDescription)]"
+                            }
+                        }
+                        effectiveInput = appended
+                        fetchStatus = nil
+                    }
                 }
-                fetchStatus = nil
             }
 
             // ── LLM streaming ─────────────────────────────────────────────

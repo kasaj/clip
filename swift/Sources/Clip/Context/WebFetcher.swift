@@ -22,6 +22,30 @@ enum WebFetcher {
         return urlRegex.firstMatch(in: t, range: range) != nil
     }
 
+    // MARK: - URL extraction from arbitrary text
+
+    /// Regex that finds http/https URLs embedded anywhere in text.
+    private static let embeddedURLRegex = try! NSRegularExpression(
+        pattern: #"https?://[^\s<>"')\]]+"#,
+        options: .caseInsensitive
+    )
+
+    /// Returns all http/https URLs found inside `text`.
+    static func extractURLs(from text: String) -> [String] {
+        let range = NSRange(text.startIndex..., in: text)
+        return embeddedURLRegex.matches(in: text, range: range).compactMap { match in
+            guard let r = Range(match.range, in: text) else { return nil }
+            // Trim trailing punctuation that is unlikely to be part of the URL
+            return String(text[r]).trimmingCharacters(in: CharacterSet(charactersIn: ".,;:!?)\"'"))
+        }
+    }
+
+    /// True if `text` contains at least one http/https URL (not necessarily the whole string).
+    static func containsAnyURL(_ text: String) -> Bool {
+        let range = NSRange(text.startIndex..., in: text)
+        return embeddedURLRegex.firstMatch(in: text, range: range) != nil
+    }
+
     // MARK: - Fetch
 
     /// Fetches a web page and returns its plain-text content (≤ maxChars).

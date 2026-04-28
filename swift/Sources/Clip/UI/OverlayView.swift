@@ -18,6 +18,8 @@ struct OverlayView: View {
     @State private var userPrompt: String = ""
     @FocusState private var promptFocused: Bool
     @State private var ignoreClipboard = false   // skip clipboard; prompt-only mode
+    @State private var loadURL = false           // fetch URL(s) found in clipboard
+    @State private var loadURLAuto = false       // true when auto-enabled (pure URL)
     @State private var recordThisSession = false
     @State private var readOutput = false
 
@@ -114,6 +116,8 @@ struct OverlayView: View {
     private func resetTransientState() {
         userPrompt = ""
         ignoreClipboard = false
+        loadURL = false
+        loadURLAuto = false
         readOutput = false
         recordThisSession = ConfigStore.shared.config.recordSessions
         showHistory = false
@@ -329,6 +333,20 @@ struct OverlayView: View {
                 .help("Save input and output to session log")
             }
 
+            // Load URL — visible only when clipboard contains at least one URL
+            if !ignoreClipboard, let text = contextText,
+               WebFetcher.containsAnyURL(text) {
+                Toggle(isOn: $loadURL) {
+                    Label("Load URL", systemImage: "globe")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                .toggleStyle(.checkbox)
+                .disabled(loadURLAuto)   // auto-checked for pure-URL clipboard, user can't uncheck
+                .help(loadURLAuto
+                      ? "Clipboard is a URL — page will be fetched automatically"
+                      : "Fetch content of URL(s) found in clipboard and append to context")
+            }
+
             Toggle(isOn: $ignoreClipboard) {
                 Label("Ignore clipboard", systemImage: "doc.on.clipboard.fill")
                     .font(.caption2).foregroundStyle(.secondary)
@@ -357,15 +375,6 @@ struct OverlayView: View {
 
     private var actionButtons: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // URL hint
-            if !ignoreClipboard, let text = contextText,
-               WebFetcher.isURL(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                HStack(spacing: 6) {
-                    Image(systemName: "globe").font(.caption2).foregroundStyle(.blue)
-                    Text("URL detected — page content will be fetched").font(.caption2).foregroundStyle(.secondary)
-                }
-                .padding(.bottom, 2)
-            }
             if let status = engine.fetchStatus {
                 HStack(spacing: 6) {
                     ProgressView().scaleEffect(0.6)
@@ -502,8 +511,17 @@ struct OverlayView: View {
         Task {
             let result = await ContextResolver.resolve()
             switch result {
-            case .text(let text, let isOCR): contextText = text; contextIsFromOCR = isOCR
-            case .error: contextText = nil
+            case .text(let text, let isOCR):
+                contextText = text
+                contextIsFromOCR = isOCR
+                // Auto-enable Load URL when the entire clipboard is a single URL
+                let isPureURL = WebFetcher.isURL(text.trimmingCharacters(in: .whitespacesAndNewlines))
+                loadURLAuto = isPureURL
+                loadURL = isPureURL
+            case .error:
+                contextText = nil
+                loadURLAuto = false
+                loadURL = false
             }
             isResolvingContext = false
         }
@@ -534,7 +552,8 @@ struct OverlayView: View {
         } else {
             return
         }
-        engine.run(action: resolved, input: input, recordSession: recordThisSession)
+        engine.run(action: resolved, input: input, recordSession: recordThisSession,
+                   loadURL: loadURL && !ignoreClipboard)
     }
 
     private func copyResult() {
