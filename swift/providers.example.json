@@ -1,24 +1,12 @@
-{
-  "_comment": "Zkopíruj tento soubor jako providers.json do své Clip-config/ složky a vyplň hodnoty.",
-
-  "keyAzureAnthropic": "YOUR_AZURE_API_KEY",
-  "azureAnthropicEndpoint": "https://YOUR_RESOURCE.services.ai.azure.com/anthropic",
-  "azureAnthropicAPIVersion": "2024-10-21",
-
-  "keyAnthropic": "sk-ant-api03-...",
-
-  "keyAzureOpenai": "YOUR_AZURE_API_KEY",
-  "azureEndpoint": "https://YOUR_RESOURCE.cognitiveservices.azure.com/openai/deployments/YOUR_DEPLOYMENT",
-  "azureDeploymentName": "",
-  "azureAPIVersion": "2025-01-01-preview",
-
-  "keyAzureOpenai2": "",
-  "azureEndpoint2": "",
-  "azureDeploymentName2": "",
-  "azureAPIVersion2": "",
-
-  "keyOpenai": "sk-...",
-
-  "keyCustomOpenAI": "",
-  "customOpenAIBaseURL": ""
-}
+[
+  {
+    "api_key": "YOUR_API_KEY",
+    "base_url": "https://YOUR-RESOURCE.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview",
+    "default": true,
+    "enabled": true,
+    "id": "CC83BAEA-C671-4D29-84CF-BA9673BD50F7",
+    "model": "gpt-4o-mini",
+    "name": "Azure OpenAI",
+    "provider": "custom"
+  }
+]
