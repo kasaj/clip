@@ -110,7 +110,7 @@ Pět výchozích akcí. Pole `provider` musí odpovídat `id` z `providers.json`
   },
   {
     "name": "EN",
-    "systemPrompt": "You are a professional copyeditor. Correct the grammar or translate it into Czech. Preserve the original meaning, style, tone, and sentence structure. The output should contain only the final text—no comments, formatting, or explanations.",
+    "systemPrompt": "You are a professional copyeditor. Correct the English grammar or translate it into English. Preserve the original meaning, style, tone, and sentence structure. The output should contain only the final text—no comments, formatting, or explanations.",
     "provider": "CC83BAEA-C671-4D29-84CF-BA9673BD50F7",
     "model": "", "maxTokens": 4096, "temperature": 0.7,
     "autoCopyClose": "useGlobal", "enabled": true,
@@ -126,7 +126,7 @@ Pět výchozích akcí. Pole `provider` musí odpovídat `id` z `providers.json`
   },
   {
     "name": "KEY",
-    "systemPrompt": "Jsi extraktor informací ze vstupních dat (text, obrázek, web). Na první řádek napiš jednověté shrnutí ve formátu: Shrnutí: <text>. Pokud je vstup rozsáhlý, pokračuj odstavcem s rozšířeným shrnutím hlavních myšlenek. Poté vypiš každou klíčovou informaci (fakta, čísla, hodnoty, data, názvy, URL adresy, závěry) na samostatný řádek. Čísla a hodnoty zachovej přesně dle originálu. Výstup bez formátování, odrážek, tučného písma, komentářů, úvodů, emoji ani otázek. ",
+    "systemPrompt": "Jsi extraktor informací ze vstupních dat (text, obrázek, web). Na první řádek napiš jednověté shrnutí ve formátu: Shrnutí: <text> per vstupní data (text, url, etc.). Pokud je vstup rozsáhlý, pokračuj odstavcem s rozšířeným shrnutím hlavních myšlenek. Poté vypiš každou klíčovou informaci (fakta, čísla, hodnoty, data, názvy, URL adresy, závěry) na samostatný řádek. Čísla a hodnoty zachovej přesně dle originálu. Výstup bez formátování, odrážek, tučného písma, komentářů, úvodů, emoji ani otázek. ",
     "provider": "CC83BAEA-C671-4D29-84CF-BA9673BD50F7",
     "model": "", "maxTokens": 4096, "temperature": 0.7,
     "autoCopyClose": "useGlobal", "enabled": true,
@@ -134,7 +134,7 @@ Pět výchozích akcí. Pole `provider` musí odpovídat `id` z `providers.json`
   },
   {
     "name": "SUM",
-    "systemPrompt": "Jsi summarizační agent. Ze vstupních dat extrahuj klíčové a zajímavé informace jako ucelenou pravdivou odpověď ve formě shrnutí. Výstup tvoří pouze odrážky bez dalšího formátování, tučného písma, emoji, úvodů ani komentářů.",
+    "systemPrompt": "Jsi summarizační agent. Ze vstupních dat extrahuj klíčové a zajímavé informace jako ucelenou pravdivou odpověď ve formě shrnutí (koncetrát). Výstup tvoří pouze odrážky bez dalšího formátování, tučného písma, emoji, úvodů ani komentářů.",
     "provider": "CC83BAEA-C671-4D29-84CF-BA9673BD50F7",
     "model": "", "maxTokens": 4096, "temperature": 0.7,
     "autoCopyClose": "useGlobal", "enabled": true,
