@@ -2,7 +2,7 @@
 
 macOS nástroj pro zpracování obsahu schránky pomocí AI. Zkopíruješ text (nebo obrázek), stiskneš zkratku, vybereš akci — překlad, shrnutí, dotaz, extrakce klíčů — a výsledek se zobrazí přímo v plovoucím panelu.
 
-![Clip 0.57](screen.png)
+![Clip 0.57](screen.gif)
 
 Existují dvě varianty — **Python** (rychlé nasazení, bez kompilace) a **Swift** (nativní macOS app, aktivně vyvíjená).
 
