@@ -575,10 +575,14 @@ struct ActionRow: View {
         .onChange(of: action.provider) { syncPickerFromAction() }
     }
 
+    private let providerDefaultSentinel = ""   // action.model="" = use provider's model
+
     private func syncPickerFromAction() {
         guard let prov = resolvedProvider else { pickerModel = customSentinel; customModelText = action.model; return }
         let presets = prov.effectiveModels(using: ConfigStore.shared.config.modelPresets)
-        if !presets.isEmpty && presets.contains(where: { $0.id == action.model }) {
+        if action.model.isEmpty {
+            pickerModel = providerDefaultSentinel; customModelText = ""
+        } else if !presets.isEmpty && presets.contains(where: { $0.id == action.model }) {
             pickerModel = action.model; customModelText = ""
         } else {
             pickerModel = customSentinel; customModelText = action.model
@@ -596,23 +600,8 @@ struct ActionRow: View {
             .labelsHidden().frame(width: 160)
             .onChange(of: action.provider) {
                 let presets = resolvedProvider?.effectiveModels(using: ConfigStore.shared.config.modelPresets) ?? []
-                let providerModel = resolvedProvider?.model ?? ""
-                if presets.isEmpty {
-                    // No presets — use provider's configured model (or empty = provider default)
-                    action.model = providerModel
-                    pickerModel = customSentinel
-                    customModelText = providerModel
-                } else if !providerModel.isEmpty {
-                    // Provider has a specific model set — use it (as custom if not in presets)
-                    if presets.contains(where: { $0.id == providerModel }) {
-                        action.model = providerModel; pickerModel = providerModel; customModelText = ""
-                    } else {
-                        action.model = providerModel; pickerModel = customSentinel; customModelText = providerModel
-                    }
-                } else {
-                    // No provider model — fall back to first preset
-                    let f = presets.first!.id; action.model = f; pickerModel = f; customModelText = ""
-                }
+                // Default new provider assignment to "Provider default" (action.model = "")
+                action.model = ""; pickerModel = providerDefaultSentinel; customModelText = ""
             }
 
             if models.isEmpty {
@@ -620,6 +609,11 @@ struct ActionRow: View {
                     .onChange(of: customModelText) { if !customModelText.isEmpty { action.model = customModelText } }
             } else {
                 Picker("Model", selection: $pickerModel) {
+                    // "Provider default" = action.model="" → inherits provider.model at runtime
+                    let provModel = resolvedProvider?.model ?? ""
+                    Text(provModel.isEmpty ? "Provider default" : "Provider default (\(provModel))")
+                        .tag(providerDefaultSentinel)
+                    Divider()
                     ForEach(models) { preset in
                         Text(preset.isRecommended ? "\(preset.displayName) ★" : preset.displayName).tag(preset.id)
                     }
@@ -627,7 +621,10 @@ struct ActionRow: View {
                     Text("Custom model…").tag(customSentinel)
                 }
                 .labelsHidden().frame(minWidth: 240)
-                .onChange(of: pickerModel) { if pickerModel != customSentinel { action.model = pickerModel; customModelText = "" } }
+                .onChange(of: pickerModel) {
+                    if pickerModel == providerDefaultSentinel { action.model = ""; customModelText = "" }
+                    else if pickerModel != customSentinel { action.model = pickerModel; customModelText = "" }
+                }
                 if isCustom {
                     TextField("model name", text: $customModelText).frame(minWidth: 180)
                         .onChange(of: customModelText) { if !customModelText.isEmpty { action.model = customModelText } }
