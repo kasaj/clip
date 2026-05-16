@@ -15,6 +15,12 @@ struct AnthropicProvider: LLMProvider {
         baseURL.lowercased().contains(".azure.com")
     }
 
+    /// Azure Cognitive Services (cognitiveservices.azure.com) uses "api-key" header.
+    /// Azure AI Foundry / AI Services (services.ai.azure.com) uses "x-api-key" — same as direct Anthropic.
+    private var azureAuthHeader: String {
+        baseURL.lowercased().contains("cognitiveservices.azure.com") ? "api-key" : "x-api-key"
+    }
+
     private var messagesURL: URL? {
         let base = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         // If user entered the full messages endpoint (with /v1/messages already), use it directly.
@@ -40,11 +46,7 @@ struct AnthropicProvider: LLMProvider {
                     }
                     var request = URLRequest(url: url)
                     request.httpMethod = "POST"
-                    if isAzure {
-                        request.setValue(apiKey, forHTTPHeaderField: "api-key")
-                    } else {
-                        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-                    }
+                    request.setValue(apiKey, forHTTPHeaderField: isAzure ? azureAuthHeader : "x-api-key")
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.setValue("2023-06-01",       forHTTPHeaderField: "anthropic-version")
                     request.timeoutInterval = 60
