@@ -444,9 +444,12 @@ struct ProviderRow: View {
                             }
                     }
 
-                    if provider.kind == .custom {
+                    if provider.kind == .custom || provider.kind == .anthropic {
                         providerField("API version") {
-                            TextField("2024-02-01  (legacy deployment URL style only)", text: $apiVersionField)
+                            TextField(provider.kind == .anthropic
+                                ? "2024-10-21  (Azure Anthropic only)"
+                                : "2024-02-01  (legacy deployment URL style only)",
+                                text: $apiVersionField)
                                 .onChange(of: apiVersionField) {
                                     provider.apiVersion = apiVersionField.isEmpty ? nil : apiVersionField
                                     onChange()
