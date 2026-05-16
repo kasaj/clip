@@ -596,8 +596,23 @@ struct ActionRow: View {
             .labelsHidden().frame(width: 160)
             .onChange(of: action.provider) {
                 let presets = resolvedProvider?.effectiveModels(using: ConfigStore.shared.config.modelPresets) ?? []
-                if presets.isEmpty { action.model = ""; pickerModel = customSentinel; customModelText = "" }
-                else { let f = presets.first!.id; action.model = f; pickerModel = f; customModelText = "" }
+                let providerModel = resolvedProvider?.model ?? ""
+                if presets.isEmpty {
+                    // No presets — use provider's configured model (or empty = provider default)
+                    action.model = providerModel
+                    pickerModel = customSentinel
+                    customModelText = providerModel
+                } else if !providerModel.isEmpty {
+                    // Provider has a specific model set — use it (as custom if not in presets)
+                    if presets.contains(where: { $0.id == providerModel }) {
+                        action.model = providerModel; pickerModel = providerModel; customModelText = ""
+                    } else {
+                        action.model = providerModel; pickerModel = customSentinel; customModelText = providerModel
+                    }
+                } else {
+                    // No provider model — fall back to first preset
+                    let f = presets.first!.id; action.model = f; pickerModel = f; customModelText = ""
+                }
             }
 
             if models.isEmpty {
