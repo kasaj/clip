@@ -17,6 +17,10 @@ struct AnthropicProvider: LLMProvider {
 
     private var messagesURL: URL? {
         let base = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        // If user entered the full messages endpoint (with /v1/messages already), use it directly.
+        if base.lowercased().contains("/v1/messages") {
+            return URL(string: base)
+        }
         if isAzure, let ver = apiVersion {
             return URL(string: "\(base)/v1/messages?api-version=\(ver)")
         }
