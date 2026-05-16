@@ -164,7 +164,9 @@ enum ProviderFactory {
     }
 
     private static func bestModel(for provider: Provider) -> String {
+        // Prefer the model explicitly configured on the provider
+        if let m = provider.model, !m.isEmpty { return m }
         let presets = provider.effectiveModels(using: ConfigStore.shared.config.modelPresets)
-        return presets.first(where: \.isRecommended)?.id ?? presets.first?.id ?? provider.model ?? ""
+        return presets.first(where: \.isRecommended)?.id ?? presets.first?.id ?? ""
     }
 }
