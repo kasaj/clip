@@ -36,12 +36,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusBarItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem?.button {
-            if let icon = NSImage(named: "MenuBarIcon") {
-                icon.isTemplate = true
-                button.image = icon
-            } else {
-                button.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Clip")
+            let menuIcon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+                let font = NSFont.systemFont(ofSize: 15, weight: .bold)
+                let str = NSAttributedString(string: "C", attributes: [
+                    .font: font,
+                    .foregroundColor: NSColor.black
+                ])
+                let sz = str.size()
+                str.draw(at: NSPoint(x: (18 - sz.width) / 2 - 0.5, y: (18 - sz.height) / 2))
+                return true
             }
+            menuIcon.isTemplate = true   // adapts to light/dark menu bar automatically
+            button.image = menuIcon
             button.target = self
             button.action = #selector(statusBarButtonClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
