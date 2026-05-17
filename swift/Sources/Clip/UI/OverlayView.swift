@@ -602,7 +602,6 @@ struct OverlayView: View {
                 HStack {
                     Spacer()
                     Button(didCopy ? "Copied ✓" : "Copy") { copyResult() }
-                        .keyboardShortcut("c", modifiers: .command)
                 }
             } else {
                 // Placeholder — always show output area so window stays the same size
@@ -923,7 +922,11 @@ private struct ClipboardPreviewWindowView: View {
             }
         }
         .frame(minWidth: 400, minHeight: 200)
-        .onKeyPress(.escape) { PopupWindowManager.closeClipboard(); return .handled }
+        .overlay {
+            Button("") { PopupWindowManager.closeClipboard() }
+                .keyboardShortcut(.escape, modifiers: [])
+                .hidden()
+        }
     }
 }
 
@@ -961,7 +964,11 @@ private struct HistoryWindowView: View {
             }
         }
         .frame(minWidth: 380, minHeight: 200)
-        .onKeyPress(.escape) { PopupWindowManager.closeHistory(); return .handled }
+        .overlay {
+            Button("") { PopupWindowManager.closeHistory() }
+                .keyboardShortcut(.escape, modifiers: [])
+                .hidden()
+        }
     }
 }
 
