@@ -123,6 +123,8 @@ struct OverlayView: View {
         }
         .onKeyPress(.escape) {
             if editingAction != nil { editingAction = nil; return .handled }
+            if PopupWindowManager.isClipboardVisible { PopupWindowManager.closeClipboard(); return .handled }
+            if PopupWindowManager.isHistoryVisible   { PopupWindowManager.closeHistory();   return .handled }
             close(); return .handled
         }
         .onKeyPress { press in
