@@ -18,6 +18,15 @@ struct OverlayView: View {
     @State private var ocrSourceMimeType: String = "image/jpeg"
     @State private var sendOCRImage = false          // "Also send image" checkbox
 
+    // File context
+    @State private var selectedFileURL: URL?
+    @State private var fileText: String?
+    @State private var fileImageData: Data?
+    @State private var fileImageMime: String = "image/jpeg"
+    @State private var clipboardHasFile: Bool = false
+    @State private var useFile: Bool = false
+    @State private var fileLoaded: Bool = false
+
     // Prompt / options
     @State private var userPrompt: String = ""
     @FocusState private var promptFocused: Bool
@@ -49,7 +58,10 @@ struct OverlayView: View {
     }
     private var hasResult: Bool { displayedResult != nil || engine.errorMessage != nil }
     private var canRun: Bool {
-        !engine.isLoading && (effectiveContext != nil || contextImageData != nil || !userPrompt.isEmpty)
+        !engine.isLoading && (
+            (useFile && (fileText != nil || fileImageData != nil)) ||
+            effectiveContext != nil || contextImageData != nil || !userPrompt.isEmpty
+        )
     }
 
     var body: some View {
@@ -153,6 +165,13 @@ struct OverlayView: View {
         readOutput = false
         recordThisSession = ConfigStore.shared.config.recordSessions
         shownHistoryResult = nil
+        selectedFileURL = nil
+        fileText = nil
+        fileImageData = nil
+        fileImageMime = "image/jpeg"
+        clipboardHasFile = false
+        useFile = false
+        fileLoaded = false
         engine.reset()
     }
 
@@ -238,7 +257,55 @@ struct OverlayView: View {
 
     @ViewBuilder
     private var contextPreview: some View {
-        if !ignoreClipboard, let imgData = contextImageData,
+        // File context row (shown instead of clipboard row when useFile is active)
+        if useFile, let fileText = fileText {
+            HStack(spacing: 6) {
+                Image(systemName: "doc.text").font(.caption2).foregroundStyle(.secondary)
+                Text("File: \(selectedFileURL?.lastPathComponent ?? "") — \(fileText.count) chars")
+                    .font(.caption2).foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    useFile = false
+                    selectedFileURL = nil
+                    self.fileText = nil
+                    fileImageData = nil
+                    fileLoaded = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill").font(.caption2).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Remove file context")
+            }
+            .padding(8)
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        } else if useFile, let imgData = fileImageData, let nsImg = NSImage(data: imgData) {
+            HStack(spacing: 10) {
+                Image(nsImage: nsImg)
+                    .resizable().scaledToFit()
+                    .frame(maxWidth: 80, maxHeight: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                VStack(alignment: .leading, spacing: 2) {
+                    Label("File: \(selectedFileURL?.lastPathComponent ?? "")", systemImage: "photo")
+                        .font(.caption).fontWeight(.medium)
+                }
+                Spacer()
+                Button {
+                    useFile = false
+                    selectedFileURL = nil
+                    fileImageData = nil
+                    fileText = nil
+                    fileLoaded = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill").font(.caption2).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Remove file context")
+            }
+            .padding(8)
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        } else if !ignoreClipboard, let imgData = contextImageData,
            let nsImg = NSImage(data: imgData) {
             // Image context — thumbnail + label
             HStack(spacing: 10) {
@@ -398,6 +465,43 @@ struct OverlayView: View {
                 .help(histOpen ? "Hide history" : "Show history")
             }
 
+            // File button — after History
+            let fileActive = clipboardHasFile || (useFile && fileLoaded)
+            Group {
+                if fileActive {
+                    Button {
+                        if clipboardHasFile {
+                            useFile.toggle()
+                        } else {
+                            openFilePicker()
+                        }
+                    } label: {
+                        Label("File", systemImage: "doc.fill")
+                            .font(.caption2)
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help(selectedFileURL.map { "File: \($0.lastPathComponent)" } ?? "File attached")
+                } else {
+                    Button {
+                        if clipboardHasFile {
+                            useFile.toggle()
+                        } else {
+                            openFilePicker()
+                        }
+                    } label: {
+                        Label("File", systemImage: "doc")
+                            .font(.caption2)
+                            .foregroundStyle(Color.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(clipboardHasFile
+                          ? "Clipboard contains a file — tap to toggle"
+                          : "Attach a file as context")
+                }
+            }
+
             if speech.isSpeaking {
                 Button("Stop") { speech.stop() }
                     .font(.caption2).buttonStyle(.bordered).controlSize(.small)
@@ -542,12 +646,27 @@ struct OverlayView: View {
         didCopy = false
         shownHistoryResult = nil
 
+        // Reset clipboard-sourced file state; keep user-manually-picked file if already loaded
+        clipboardHasFile = false
+
         isResolvingContext = true
         ocrSourceImageData = nil
         sendOCRImage = false
         let pb = NSPasteboard.general
         contextIsFromOCR = pb.string(forType: .string)?.isEmpty != false && NSImage(pasteboard: pb) != nil
         Task {
+            // Check for file URL in clipboard before resolving text/image context
+            let fileURLs = NSPasteboard.general.readObjects(
+                forClasses: [NSURL.self],
+                options: [.urlReadingFileURLsOnly: true]
+            ) as? [URL]
+            if let fileUrl = fileURLs?.first {
+                clipboardHasFile = true
+                selectedFileURL = fileUrl
+                useFile = true
+                await loadFileContent(fileUrl)
+            }
+
             let result = await ContextResolver.resolve()
             switch result {
             case .text(let text, let isOCR):
@@ -601,12 +720,15 @@ struct OverlayView: View {
         // Prompt-only mode: no clipboard context at all → bypass action's system prompt
         // so the user's prompt is sent directly as the primary instruction, not as
         // data to be processed by a grammar-fixer / translator / etc.
-        if effectiveContext == nil && contextImageData == nil {
+        let hasFileContext = useFile && (fileText != nil || fileImageData != nil)
+        if effectiveContext == nil && contextImageData == nil && !hasFileContext {
             resolved.systemPrompt = ""
         }
 
         let input: String
-        if let text = effectiveContext, !text.isEmpty {
+        // When file context is active, prefer file text over clipboard text
+        let activeText: String? = (useFile && fileText != nil) ? fileText : effectiveContext
+        if let text = activeText, !text.isEmpty {
             if !userPrompt.isEmpty && !action.systemPrompt.contains("{{kontext}}") {
                 input = text + "\n\n---\n" + userPrompt
             } else {
@@ -614,15 +736,21 @@ struct OverlayView: View {
             }
         } else if !userPrompt.isEmpty {
             input = userPrompt
+        } else if hasFileContext && fileImageData != nil {
+            // image-only file — input can be empty, image carries the context
+            input = userPrompt
         } else {
             return
         }
         // Determine image to send:
+        //  • file image (when useFile) → fileImageData
         //  • pure-image clipboard → contextImageData
         //  • OCR + "Send image" checkbox → ocrSourceImageData
         let imgData: Data?
         let imgMime: String?
-        if ignoreClipboard {
+        if useFile, let data = fileImageData {
+            imgData = data; imgMime = fileImageMime
+        } else if ignoreClipboard {
             imgData = nil; imgMime = nil
         } else if let data = contextImageData {
             imgData = data; imgMime = contextMimeType
@@ -634,6 +762,63 @@ struct OverlayView: View {
         engine.run(action: resolved, input: input, recordSession: recordThisSession,
                    loadURL: loadURL && !ignoreClipboard,
                    imageData: imgData, imageMimeType: imgMime)
+    }
+
+    private func loadFileContent(_ url: URL) async {
+        let ext = url.pathExtension.lowercased()
+        let imageExts = ["png", "jpg", "jpeg", "gif", "webp", "tiff", "heic"]
+        if imageExts.contains(ext) {
+            do {
+                let data = try Data(contentsOf: url)
+                fileImageData = data
+                let mime: String
+                switch ext {
+                case "jpg", "jpeg": mime = "image/jpeg"
+                case "png":         mime = "image/png"
+                case "gif":         mime = "image/gif"
+                case "webp":        mime = "image/webp"
+                case "tiff":        mime = "image/tiff"
+                case "heic":        mime = "image/heic"
+                default:            mime = "image/jpeg"
+                }
+                fileImageMime = mime
+                fileText = nil
+                fileLoaded = true
+            } catch {
+                useFile = false
+                fileImageData = nil
+                fileLoaded = false
+            }
+        } else {
+            do {
+                let text: String
+                if let utf8 = try? String(contentsOf: url, encoding: .utf8) {
+                    text = utf8
+                } else {
+                    text = try String(contentsOf: url, encoding: .isoLatin1)
+                }
+                fileText = text
+                fileImageData = nil
+                fileLoaded = true
+            } catch {
+                useFile = false
+                fileText = nil
+                fileLoaded = false
+            }
+        }
+    }
+
+    private func openFilePicker() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.message = "Select a file to use as context"
+        if panel.runModal() == .OK, let url = panel.url {
+            selectedFileURL = url
+            useFile = true
+            Task { await loadFileContent(url) }
+        }
     }
 
     private func copyResult() {
